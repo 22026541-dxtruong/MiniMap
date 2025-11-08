@@ -16,18 +16,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ar.sceneform.ArSceneView
 import ie.app.minimap.MiniMapViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 import ie.app.minimap.ArUiState
 
 @SuppressLint("ClickableViewAccessibility")
 @Composable
 fun ArScreen(
-    viewModel: MiniMapViewModel = viewModel(),
+    viewModel: MiniMapViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
 ) {
 

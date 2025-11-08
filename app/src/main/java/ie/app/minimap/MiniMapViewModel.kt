@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Context
 import android.view.MotionEvent
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import com.google.ar.core.Anchor
 import com.google.ar.core.Config
@@ -26,11 +25,13 @@ import com.google.ar.sceneform.rendering.ShapeFactory
 import com.google.ar.sceneform.ux.FootprintSelectionVisualizer
 import com.google.ar.sceneform.ux.TransformableNode
 import com.google.ar.sceneform.ux.TransformationSystem
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed interface ArUiState {
     data object Loading : ArUiState // Đang tải mô hình 3D
@@ -38,7 +39,8 @@ sealed interface ArUiState {
     data class Error(val message: String) : ArUiState // Có lỗi xảy ra
 }
 
-class MiniMapViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class MiniMapViewModel @Inject constructor(private val application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<ArUiState>(ArUiState.Loading)
     val uiState: StateFlow<ArUiState> = _uiState.asStateFlow()
 
@@ -50,7 +52,6 @@ class MiniMapViewModel(application: Application) : AndroidViewModel(application)
     init {
         // Bắt đầu tải mô hình 3D ngay khi ViewModel được tạo
         loadModel()
-        arSession = createArSession(application)
     }
 
     /**
@@ -89,6 +90,7 @@ class MiniMapViewModel(application: Application) : AndroidViewModel(application)
         }
 
         try {
+            arSession = createArSession(application)
             if (arSceneView.session == null) {
                 // Tạo AR Session (từ logic cũ của bạn)
                 arSceneView.setupSession(arSession)
