@@ -2,13 +2,16 @@ package ie.app.minimap
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import android.view.MotionEvent
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ar.core.Anchor
 import com.google.ar.core.Config
 import com.google.ar.core.Plane
 import com.google.ar.core.Session
+import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.CameraNotAvailableException
 import com.google.ar.core.exceptions.UnavailableApkTooOldException
 import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException
@@ -26,11 +29,16 @@ import com.google.ar.sceneform.ux.FootprintSelectionVisualizer
 import com.google.ar.sceneform.ux.TransformableNode
 import com.google.ar.sceneform.ux.TransformationSystem
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.File
 import javax.inject.Inject
 
 sealed interface ArUiState {
@@ -40,18 +48,23 @@ sealed interface ArUiState {
 }
 
 @HiltViewModel
-class MiniMapViewModel @Inject constructor(private val application: Application) : AndroidViewModel(application) {
+class MiniMapViewModel @Inject constructor(
+    private val application: Application
+) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<ArUiState>(ArUiState.Loading)
     val uiState: StateFlow<ArUiState> = _uiState.asStateFlow()
-
     // Biến nội bộ của ViewModel
     private var arSession: Session? = null
     private var modelRenderable: ModelRenderable? = null
     private var transformationSystem: TransformationSystem? = null
+    private val hostedAnchors = mutableListOf<Anchor>()
+    private var anchorsToResolve = mutableListOf<String>()
+    private var hasResolveBeenAttempted = false
 
     init {
         // Bắt đầu tải mô hình 3D ngay khi ViewModel được tạo
         loadModel()
+        loadCloudAnchors()
     }
 
     /**
@@ -61,7 +74,10 @@ class MiniMapViewModel @Inject constructor(private val application: Application)
         viewModelScope.launch {
             try {
                 // Tải vật liệu và tạo mô hình
-                val material = MaterialFactory.makeOpaqueWithColor(application, Color(android.graphics.Color.RED)).await()
+                val material = MaterialFactory.makeOpaqueWithColor(
+                    application,
+                    Color(android.graphics.Color.RED)
+                ).await()
                 modelRenderable = ShapeFactory.makeCube(
                     Vector3(0.1f, 0.1f, 0.1f),
                     Vector3(0.0f, 0.05f, 0.0f),
@@ -78,26 +94,51 @@ class MiniMapViewModel @Inject constructor(private val application: Application)
         }
     }
 
+    private fun loadCloudAnchors() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val file = File(application.getExternalFilesDir(null), "cloud_anchors.json")
+                if (file.exists()) {
+                    val json = file.readText()
+                    val cloudIds = JSONObject(json).getJSONArray("anchors")
+
+                    // Xóa danh sách cũ và thêm ID mới
+                    anchorsToResolve.clear()
+                    for (i in 0 until cloudIds.length()) {
+                        anchorsToResolve.add(cloudIds.getString(i))
+                    }
+                    hasResolveBeenAttempted = false // Đặt lại cờ để thử resolve lại
+                    Log.d("CloudAnchor", "✅ Đã tải ${anchorsToResolve.size} anchor ID, sẵn sàng để resolve.")
+                }
+            } catch (e: Exception) {
+                Log.e("CloudAnchor", "❌ Không thể tải danh sách anchors: ${e.message}")
+                _uiState.value = ArUiState.Error("Không thể tải danh sách anchors: ${e.message}")
+            }
+        }
+    }
+
     /**
      * Composable sẽ gọi hàm này khi có sự kiện ON_RESUME
      */
     fun onResume(context: Context, arSceneView: ArSceneView) {
         // Tạo TransformationSystem một lần duy nhất
         if (transformationSystem == null) {
-            transformationSystem = TransformationSystem(context.resources.displayMetrics,
+            transformationSystem = TransformationSystem(
+                context.resources.displayMetrics,
                 FootprintSelectionVisualizer()
             )
         }
 
         try {
-            arSession = createArSession(application)
+            if (arSession == null) {
+                arSession = createArSession(context)
+            }
             if (arSceneView.session == null) {
                 // Tạo AR Session (từ logic cũ của bạn)
                 arSceneView.setupSession(arSession)
             }
             // Tiếp tục session
             arSceneView.resume()
-
             // Nếu mô hình đã tải xong, chuyển sang trạng thái Sẵn sàng
             if (modelRenderable != null) {
                 _uiState.value = ArUiState.Ready(transformationSystem!!)
@@ -107,6 +148,42 @@ class MiniMapViewModel @Inject constructor(private val application: Application)
         } catch (e: Exception) {
             _uiState.value = ArUiState.Error(e.message ?: "Lỗi không xác định khi khởi động AR")
         }
+    }
+
+    fun onUpdate(arSceneView: ArSceneView) {
+        val currentState = _uiState.value
+        if (currentState !is ArUiState.Ready || hasResolveBeenAttempted || anchorsToResolve.isEmpty()) {
+            return
+        }
+
+        // 2. Chỉ chạy khi ARCore đã TRACKING (quan trọng nhất)
+        val arFrame = arSceneView.arFrame ?: return
+        if (arFrame.camera.trackingState != TrackingState.TRACKING) {
+            Log.d("CloudAnchor", "⏳ Đang chờ trạng thái TRACKING...")
+            return // Chờ cho đến khi ARCore bắt đầu theo dõi
+        }
+
+        // 3. Đánh dấu là đã thử (để không chạy lại 60 lần/giây)
+        hasResolveBeenAttempted = true
+        Log.d("CloudAnchor", "✅ Session đã TRACKING. Bắt đầu resolve ${anchorsToResolve.size} anchors...")
+
+        // 4. Bắt đầu resolve tất cả
+        anchorsToResolve.forEach { cloudId ->
+            resolveCloudAnchor(cloudId) { anchor ->
+                if (anchor != null) {
+                    placeObject(
+                        arSceneView,
+                        anchor,
+                        modelRenderable!!,
+                        currentState.transformationSystem
+                    )
+                    Log.d("CloudAnchor", "🎉 Anchor resolved và hiển thị: $cloudId")
+                } else {
+                    Log.e("CloudAnchor", "❌ Không resolve được Anchor: $cloudId (từ onFrameUpdate)")
+                }
+            }
+        }
+        anchorsToResolve.clear() // Xóa danh sách sau khi đã thử
     }
 
     /**
@@ -124,13 +201,17 @@ class MiniMapViewModel @Inject constructor(private val application: Application)
         arSceneView.session?.close()
         arSceneView.destroy()
         arSession = null
-        transformationSystem = null // Hủy
+        transformationSystem = null
     }
 
     /**
      * Composable gọi khi người dùng chạm vào màn hình
      */
-    fun onSceneTouched(arSceneView: ArSceneView, hitTestResult: HitTestResult, motionEvent: MotionEvent) {
+    fun onSceneTouched(
+        arSceneView: ArSceneView,
+        hitTestResult: HitTestResult,
+        motionEvent: MotionEvent
+    ) {
         val currentState = _uiState.value
         if (currentState !is ArUiState.Ready) return // Chỉ xử lý khi đã sẵn sàng
 
@@ -149,8 +230,85 @@ class MiniMapViewModel @Inject constructor(private val application: Application)
             }
 
             if (hit != null) {
-                placeObject(arSceneView, hit.createAnchor(), currentModel, currentState.transformationSystem)
+                val anchor = hit.createAnchor()
+                placeObject(arSceneView, anchor, currentModel, currentState.transformationSystem)
+                hostedAnchors.add(anchor)
             }
+        }
+    }
+
+    private suspend fun hostCloudAnchor(localAnchor: Anchor): String? {
+        return suspendCancellableCoroutine { cont ->
+            val session = arSession ?: return@suspendCancellableCoroutine
+            try {
+                // Host Cloud Anchor với TTL 1 ngày
+                session.hostCloudAnchorAsync(localAnchor, 1) { cloudId, state ->
+                    when (state) {
+                        Anchor.CloudAnchorState.SUCCESS -> {
+                            // Hosting thành công, tiếp tục với giá trị cloudId
+                            cont.resume(cloudId, onCancellation = { throwable, value, context ->
+                                // Xử lý hủy nếu cần thiết, có thể để trống nếu không cần xử lý cancellation
+                                Log.e("CloudAnchor", "Hosting bị huỷ: ${throwable?.message}")
+                            })
+                        }
+
+                        Anchor.CloudAnchorState.TASK_IN_PROGRESS -> {
+                            // Không làm gì, chờ callback tiếp theo
+                        }
+
+                        else -> {
+                            // Hosting thất bại, trả về null
+                            cont.resume(null, onCancellation = { throwable, value, context ->
+                                // Xử lý hủy nếu cần thiết
+                                Log.e("CloudAnchor", "Hosting thất bại và bị huỷ: ${throwable?.message}")
+                            })
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("CloudAnchor", "Hosting failed: ${e.message}")
+                // Nếu có lỗi khi host, trả về null
+                cont.resume(null, onCancellation = { throwable, value, context ->
+                    // Xử lý hủy khi có lỗi
+                    Log.e("CloudAnchor", "Hosting bị huỷ do lỗi: ${throwable?.message}")
+                })
+            }
+        }
+    }
+
+    private fun resolveCloudAnchor(cloudAnchorId: String, onResult: (Anchor?) -> Unit) {
+        val session = arSession ?: return
+
+        try {
+            session.resolveCloudAnchorAsync(cloudAnchorId) { cloudAnchor, state ->
+                when (state) {
+                    Anchor.CloudAnchorState.SUCCESS -> {
+                        Log.d("CloudAnchor", "✅ Cloud Anchor resolved: $cloudAnchorId")
+                        onResult(cloudAnchor)
+                    }
+
+                    Anchor.CloudAnchorState.TASK_IN_PROGRESS -> {
+                        Log.d("CloudAnchor", "⏳ Resolving Cloud Anchor in progress: $cloudAnchorId")
+                        // Không gọi onResult, chờ callback tiếp
+                    }
+
+                    Anchor.CloudAnchorState.ERROR_NOT_AUTHORIZED,
+                    Anchor.CloudAnchorState.ERROR_INTERNAL,
+                    Anchor.CloudAnchorState.ERROR_SERVICE_UNAVAILABLE,
+                    Anchor.CloudAnchorState.ERROR_RESOURCE_EXHAUSTED -> {
+                        Log.e("CloudAnchor", "❌ Failed to resolve Cloud Anchor $cloudAnchorId: $state")
+                        onResult(null)
+                    }
+
+                    else -> {
+                        Log.w("CloudAnchor", "⚠️ Cloud Anchor in unexpected state: $state")
+                        // Không gọi onResult
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("CloudAnchor", "Resolve failed: ${e.message}")
+            onResult(null)
         }
     }
 
@@ -164,8 +322,11 @@ class MiniMapViewModel @Inject constructor(private val application: Application)
                     updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
                     planeFindingMode = Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL
                     // depthMode = Config.DepthMode.AUTOMATIC // Bật nếu cần
+                    cloudAnchorMode = Config.CloudAnchorMode.ENABLED
+                    focusMode = Config.FocusMode.AUTO
                 }
                 this.configure(config)
+                Log.d("CloudAnchor", "✅ ARCore đã sẵn sàng")
             }
         } catch (e: UnavailableUserDeclinedInstallationException) {
             throw Exception("Vui lòng cài đặt Dịch vụ Google Play cho AR")
@@ -199,4 +360,43 @@ class MiniMapViewModel @Inject constructor(private val application: Application)
         modelNode.renderable = model
         modelNode.select()
     }
+
+    fun exportCloudAnchorsToFile(context: Context) {
+        if (hostedAnchors.isEmpty()) return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val jsonList = mutableListOf<String>()
+
+            // Chờ tất cả anchor được host xong
+            hostedAnchors.forEach { anchor ->
+                val cloudId = hostCloudAnchor(anchor) // Chờ kết quả từ hàm suspend
+                if (cloudId != null) {
+                    jsonList.add(cloudId)
+                    Log.d("CloudAnchor", "✅ Cloud Anchor ID: $cloudId")
+                } else {
+                    Log.e("CloudAnchor", "❌ Không thể host Cloud Anchor.")
+                }
+            }
+
+            // Tạo JSON từ danh sách cloudId đã host
+            val json = """{"anchors": [${jsonList.joinToString(",") { "\"$it\"" }}]}"""
+            Log.d("CloudAnchor", "JSON: $json")
+
+            // Ghi file JSON
+            val file = File(context.getExternalFilesDir(null), "cloud_anchors.json")
+            file.writeText(json)
+
+            // Chuyển tiếp thông báo Toast về UI thread
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    application,
+                    "Đã host ${jsonList.size} Anchor",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            Log.d("CloudAnchor", "✅ Đã tạo file JSON tại ${file.absolutePath}")
+        }
+    }
+
 }

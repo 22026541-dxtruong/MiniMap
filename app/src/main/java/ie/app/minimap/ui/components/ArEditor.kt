@@ -1,9 +1,10 @@
-package ie.app.minimap.ui.screens
+package ie.app.minimap.ui.components
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -26,7 +28,7 @@ import ie.app.minimap.ArUiState
 
 @SuppressLint("ClickableViewAccessibility")
 @Composable
-fun ArScreen(
+fun ArEditor(
     viewModel: MiniMapViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
 ) {
@@ -87,6 +89,7 @@ fun ArScreen(
 //                                // Trích xuất tọa độ [x, y, z]
 //                                Log.d("MiniMap", "Camera Pose: ${cameraPose.tx()} ${cameraPose.ty()} ${cameraPose.tz()} ${cameraPose.qx()} ${cameraPose.qy()} ${cameraPose.qz()} ${cameraPose.qw()}")
 //                            }
+//                            viewModel.onUpdate(view)
                         }
                     }
                     else -> {
@@ -110,14 +113,18 @@ fun ArScreen(
             is ArUiState.Error -> {
                 Text(
                     text = "Lỗi: ${state.message}",
-                    color = androidx.compose.ui.graphics.Color.Red,
+                    color = Color.Red,
                     modifier = Modifier
                         .align(Alignment.Center)
                         .padding(16.dp)
                 )
             }
             is ArUiState.Ready -> {
-                Text("Nhấn vào mặt phẳng để đặt Cube")
+                Button(onClick = {
+                    viewModel.exportCloudAnchorsToFile(context = context)
+                }) {
+                    Text(text = "Export Anchors")
+                }
             }
         }
     }

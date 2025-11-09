@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.jetbrains.kotlin.serialization)
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
 }
@@ -54,8 +55,13 @@ dependencies {
     implementation(libs.androidx.compose.material3)
 
     implementation(libs.core)
-
-    // Thư viện Sceneform
+    implementation(libs.play.services.auth)
+    //Nav3
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    implementation(libs.kotlinx.serialization.core)
+    //Sceneform
     implementation(libs.sceneform.ux) {
         exclude(group = "com.android.support")
     }

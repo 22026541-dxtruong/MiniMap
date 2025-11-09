@@ -15,7 +15,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import com.google.ar.core.ArCoreApk
 import dagger.hilt.android.AndroidEntryPoint
-import ie.app.minimap.ui.screens.ArScreen
 import ie.app.minimap.ui.theme.MiniMapTheme
 
 @AndroidEntryPoint
@@ -54,7 +53,7 @@ class MainActivity : ComponentActivity() {
             }
             MiniMapTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ArScreen(modifier = Modifier.fillMaxSize().padding(innerPadding))
+                    MiniMapNav(modifier = Modifier.fillMaxSize().padding(innerPadding))
                 }
             }
         }

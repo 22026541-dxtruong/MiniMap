@@ -1,0 +1,54 @@
+package ie.app.minimap
+
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
+import ie.app.minimap.ui.screens.HomeScreen
+import ie.app.minimap.ui.screens.MapEditorScreen
+import ie.app.minimap.ui.screens.MapViewerScreen
+import kotlinx.serialization.Serializable
+
+@Serializable
+data object Home : NavKey
+
+@Serializable
+data object MapEditor : NavKey
+
+@Serializable
+data object MapViewer : NavKey
+
+@Composable
+fun MiniMapNav(
+    modifier: Modifier = Modifier
+) {
+    val backStack = rememberNavBackStack(Home)
+
+    NavDisplay(
+        modifier = modifier,
+        backStack = backStack,
+        onBack = { backStack.removeLastOrNull() },
+        entryDecorators = listOf(
+            rememberSaveableStateHolderNavEntryDecorator(),
+            rememberViewModelStoreNavEntryDecorator()
+        ),
+        entryProvider = entryProvider {
+            entry(Home) {
+                HomeScreen(
+                    onClickMapEditor = { backStack.add(MapEditor) },
+                    onClickMapViewer = { backStack.add(MapViewer) },
+                )
+            }
+            entry(MapEditor) {
+                MapEditorScreen()
+            }
+            entry(MapViewer) {
+                MapViewerScreen()
+            }
+        }
+    )
+}
