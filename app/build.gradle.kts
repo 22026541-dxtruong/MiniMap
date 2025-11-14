@@ -68,7 +68,6 @@ dependencies {
     }
     //Hilt
     implementation(libs.hilt.android)
-    implementation(libs.core.ktx)
     ksp(libs.hilt.android.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
     //Room
@@ -83,5 +82,4 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    implementation(kotlin("test"))
 }
