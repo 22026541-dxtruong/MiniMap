@@ -11,9 +11,9 @@ interface FloorConnectionRepository {
 
     suspend fun deleteFloorConnection(connection: FloorConnection)
 
-    fun getFloorConnectionById(id: Int): Flow<FloorConnection>
+    fun getFloorConnectionById(id: Long): Flow<FloorConnection>
 
-    fun getConnectionsByBuilding(buildingId: Int): Flow<List<FloorConnection>>
+    fun getConnectionsByBuilding(buildingId: Long): Flow<List<FloorConnection>>
 
-    fun getConnectionsByFloor(floorId: Int): Flow<List<FloorConnection>>
+    fun getConnectionsByFloor(floorId: Long): Flow<List<FloorConnection>>
 }

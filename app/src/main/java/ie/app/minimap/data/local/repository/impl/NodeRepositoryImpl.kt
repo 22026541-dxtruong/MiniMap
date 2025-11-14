@@ -12,11 +12,11 @@ class NodeRepositoryImpl @Inject constructor(
     private val nodeDao: NodeDao
 ) : NodeRepository {
 
-    override fun getNodeById(id: Int): Flow<Node> {
+    override fun getNodeById(id: Long): Flow<Node> {
         return nodeDao.getItem(id)
     }
 
-    override fun getNodeByFloor(floorId: Int): Flow<List<Node>> {
+    override fun getNodeByFloor(floorId: Long): Flow<List<Node>> {
         return nodeDao.getNodeByFloor(floorId)
     }
 

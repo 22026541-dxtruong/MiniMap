@@ -41,7 +41,7 @@ class NodeMapViewModel @Inject constructor(
 
     // ---------------- FLOOR ----------------------
 
-    fun loadFloor(floorId: Int) {
+    fun loadFloor(floorId: Long) {
         viewModelScope.launch {
             floorRepository.getFloorById(floorId)
                 .collect { floor ->
@@ -56,7 +56,7 @@ class NodeMapViewModel @Inject constructor(
 
     // ---------------- NODE ----------------------
 
-    fun loadNodes(floorId: Int) {
+    fun loadNodes(floorId: Long) {
         viewModelScope.launch {
             nodeRepository.getNodeByFloor(floorId)
                 .collect { _nodes.value = it }
@@ -77,7 +77,7 @@ class NodeMapViewModel @Inject constructor(
 
     // ---------------- EDGE ----------------------
 
-    fun loadEdges(floorId: Int) {
+    fun loadEdges(floorId: Long) {
         viewModelScope.launch {
             edgeRepository.getEdgesByFloor(floorId)
                 .collect { _edges.value = it }
@@ -99,7 +99,7 @@ class NodeMapViewModel @Inject constructor(
 
     // ---------------- FLOOR CONNECTION ----------------------
 
-    fun loadFloorConnections(floorId: Int) {
+    fun loadFloorConnections(floorId: Long) {
         viewModelScope.launch {
             floorConnectionRepository.getConnectionsByFloor(floorId)
                 .collect { _connections.value = it }

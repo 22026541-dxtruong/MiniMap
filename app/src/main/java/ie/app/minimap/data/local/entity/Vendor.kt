@@ -9,7 +9,7 @@ import androidx.room.PrimaryKey
 )
 data class Vendor(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
+    val id: Long = 0,
     val name: String = "",
     val description: String = "",
     val category: String = "",

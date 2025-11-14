@@ -13,8 +13,8 @@ import javax.inject.Singleton
 class VenueRepositoryImpl @Inject constructor(
     private val venueDao: VenueDao
 ) : VenueRepository {
-    override fun getVenuesById(id : Int): Flow<List<Venue>> {
-         return venueDao.getVenuebyId(id)
+    override fun getVenuesById(id : Long): Flow<List<Venue>> {
+         return venueDao.getVenueById(id)
     }
 
     override suspend fun createVenueWithDefaults(

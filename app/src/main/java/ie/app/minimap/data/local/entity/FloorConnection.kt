@@ -47,15 +47,15 @@ import androidx.room.PrimaryKey
 )
 data class FloorConnection(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
+    val id: Long = 0,
     @ColumnInfo(name = "building_id")
-    val buildingId: Int = 0,
+    val buildingId: Long = 0,
     @ColumnInfo(name = "from_floor")
-    val fromFloor: Int = 0,
+    val fromFloor: Long = 0,
     @ColumnInfo(name = "from_node")
     val fromNode: String = "",
     @ColumnInfo(name = "to_floor")
-    val toFloor: Int = 0,
+    val toFloor: Long = 0,
     @ColumnInfo(name = "to_node")
     val toNode: String = "",
     @ColumnInfo(name = "type")

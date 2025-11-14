@@ -21,9 +21,9 @@ interface EdgeDao {
     suspend fun delete(edge: Edge)
 
     @Query("SELECT * FROM edges WHERE id = :id")
-    fun getItem(id: Int): Flow<Edge>
+    fun getItem(id: Long): Flow<Edge>
 
     @Query("SELECT * FROM edges WHERE floor_id = :floorId ORDER BY id ASC")
-    fun getEdgesByFloor(floorId: Int): Flow<List<Edge>>
+    fun getEdgesByFloor(floorId: Long): Flow<List<Edge>>
 
 }

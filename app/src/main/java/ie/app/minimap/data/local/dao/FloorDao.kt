@@ -21,9 +21,9 @@ interface FloorDao {
     suspend fun delete(floor: Floor)
 
     @Query("SELECT * FROM floors WHERE id = :id")
-    fun getItem(id: Int): Flow<Floor>
+    fun getItem(id: Long): Flow<Floor>
 
     @Query("SELECT * FROM floors WHERE building_id = :buildingId ORDER BY level ASC")
-    fun getFloorsByBuilding(buildingId: Int): Flow<List<Floor>>
+    fun getFloorsByBuilding(buildingId: Long): Flow<List<Floor>>
 
 }

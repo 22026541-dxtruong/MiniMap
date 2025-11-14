@@ -10,7 +10,7 @@ interface EdgeRepository {
 
     suspend fun delete(edge: Edge)
 
-    fun getEdgeById(id: Int): Flow<Edge>
+    fun getEdgeById(id: Long): Flow<Edge>
 
-    fun getEdgesByFloor(floorId: Int): Flow<List<Edge>>
+    fun getEdgesByFloor(floorId: Long): Flow<List<Edge>>
 }

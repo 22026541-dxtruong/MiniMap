@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface VenueDao {
     @Query("SELECT * from venues WHERE id = :id")
-    fun getVenuebyId(id: Int): Flow<List<Venue>>
+    fun getVenueById(id: Long): Flow<List<Venue>>
 
     @Insert
     suspend fun insertVenue(venue: Venue): Long
@@ -31,21 +31,21 @@ interface VenueDao {
     ): Triple<Venue, Building, Floor> {
 
         val venue = Venue(name = name, address = address, description = description)
-        val venueId = insertVenue(venue).toInt()
+        val venueId = insertVenue(venue)
 
         val building = Building(
             venueId = venueId,
             name = "Main Building",
             description = "Default building for this venue"
         )
-        val buildingId = insertBuilding(building).toInt()
+        val buildingId = insertBuilding(building)
 
         val floor = Floor(
             buildingId = buildingId,
             level = 1,
             name = "Ground Floor"
         )
-        val floorId = insertFloor(floor).toInt()
+        val floorId = insertFloor(floor)
 
         return Triple(
             venue.copy(id = venueId),

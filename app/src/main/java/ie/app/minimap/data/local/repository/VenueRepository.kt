@@ -5,8 +5,8 @@ import ie.app.minimap.data.local.entity.Floor
 import ie.app.minimap.data.local.entity.Venue
 import kotlinx.coroutines.flow.Flow
 
-public interface VenueRepository {
-    fun getVenuesById(id : Int): Flow<List<Venue>>
+interface VenueRepository {
+    fun getVenuesById(id : Long): Flow<List<Venue>>
 
     suspend fun createVenueWithDefaults(
         name: String,

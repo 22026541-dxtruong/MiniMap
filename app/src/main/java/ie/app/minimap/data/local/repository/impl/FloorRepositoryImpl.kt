@@ -11,11 +11,11 @@ import javax.inject.Singleton
 class FloorRepositoryImpl @Inject constructor(
     private val floorDao: FloorDao
 ): FloorRepository {
-    override fun getFloorById(id: Int): Flow<Floor> {
+    override fun getFloorById(id: Long): Flow<Floor> {
         return floorDao.getItem(id)
     }
 
-    override fun getFloorsByBuilding(buildingId: Int): Flow<List<Floor>> {
+    override fun getFloorsByBuilding(buildingId: Long): Flow<List<Floor>> {
         return floorDao.getFloorsByBuilding(buildingId)
     }
 

@@ -33,13 +33,13 @@ import androidx.room.PrimaryKey
 )
 data class Edge(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
+    val id: Long = 0,
     @ColumnInfo(name = "floor_id")
-    val floorId: Int = 0,
+    val floorId: Long = 0,
     @ColumnInfo(name = "from_node")
-    val fromNode: Int = 0,
+    val fromNode: Long = 0,
     @ColumnInfo(name = "to_node")
-    val toNode: Int = 0,
+    val toNode: Long = 0,
     val weight: Float = 0f,
     val type: String = "",
     @ColumnInfo(name = "created_at")

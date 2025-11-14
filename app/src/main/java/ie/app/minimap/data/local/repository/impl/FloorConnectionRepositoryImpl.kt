@@ -11,7 +11,7 @@ import javax.inject.Singleton
 class FloorConnectionRepositoryImpl @Inject constructor(
     private val floorConnectionDao: FloorConnectionDao
 ) : FloorConnectionRepository {
-    override fun getConnectionsByBuilding(buildingId: Int): Flow<List<FloorConnection>> {
+    override fun getConnectionsByBuilding(buildingId: Long): Flow<List<FloorConnection>> {
         return floorConnectionDao.getConnectionsByBuilding(buildingId)
     }
 
@@ -19,11 +19,11 @@ class FloorConnectionRepositoryImpl @Inject constructor(
         floorConnectionDao.delete(connection)
     }
 
-    override fun getConnectionsByFloor(floorId: Int): Flow<List<FloorConnection>> {
+    override fun getConnectionsByFloor(floorId: Long): Flow<List<FloorConnection>> {
         return floorConnectionDao.getConnectionsByFloor(floorId)
     }
 
-    override fun getFloorConnectionById(id: Int): Flow<FloorConnection> {
+    override fun getFloorConnectionById(id: Long): Flow<FloorConnection> {
         return floorConnectionDao.getItem(id)
     }
 

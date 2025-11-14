@@ -54,19 +54,19 @@ import androidx.room.PrimaryKey
 )
 data class Booth(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
+    val id: Long = 0,
     @ColumnInfo(name = "event_id")
-    val eventId: Int,
+    val eventId: Long,
     @ColumnInfo(name = "vendor_id")
-    val vendorId: Int,
+    val vendorId: Long,
     @ColumnInfo(name = "venue_id")
-    val venueId: Int,
+    val venueId: Long,
     @ColumnInfo(name = "building_id")
-    val buildingId: Int,
+    val buildingId: Long,
     @ColumnInfo(name = "floor_id")
-    val floorId: Int,
+    val floorId: Long,
     @ColumnInfo(name = "node_id")
-    val nodeId: Int,
+    val nodeId: Long,
     val name: String,
     val description: String,
     val category: String = "",

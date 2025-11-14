@@ -4,9 +4,9 @@ import ie.app.minimap.data.local.entity.Node
 import kotlinx.coroutines.flow.Flow
 
 interface NodeRepository {
-    fun getNodeById (id: Int) : Flow<Node>
+    fun getNodeById (id: Long) : Flow<Node>
 
-    fun getNodeByFloor(floorId :Int): Flow<List<Node>>
+    fun getNodeByFloor(floorId :Long): Flow<List<Node>>
 
     suspend fun insertNode(node: Node)
 

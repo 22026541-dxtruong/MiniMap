@@ -15,11 +15,11 @@ class EdgeRepositoryImpl @Inject constructor(
        edgeDao.delete(edge)
     }
 
-    override fun getEdgesByFloor(floorId: Int): Flow<List<Edge>> {
+    override fun getEdgesByFloor(floorId: Long): Flow<List<Edge>> {
         return edgeDao.getEdgesByFloor(floorId)
     }
 
-    override fun getEdgeById(id: Int): Flow<Edge> {
+    override fun getEdgeById(id: Long): Flow<Edge> {
         return edgeDao.getItem(id)
     }
 

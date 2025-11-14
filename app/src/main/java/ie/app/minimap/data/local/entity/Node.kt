@@ -19,13 +19,13 @@ import androidx.room.PrimaryKey
 )
 data class Node(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
+    val id: Long = 0,
     @ColumnInfo(name = "floor_id")
-    val floorId: Int = 0,
+    val floorId: Long = 0,
     val label: String,
     val type: String,
-    val x: Int = 0,
-    val y: Int = 0,
+    val x: Long = 0,
+    val y: Long = 0,
     @ColumnInfo(name = "cloud_anchor_id")
     val cloudAnchorId: String = "",
     @ColumnInfo(name = "created_at")

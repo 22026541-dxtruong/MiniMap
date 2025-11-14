@@ -5,9 +5,9 @@ import kotlinx.coroutines.flow.Flow
 
 
 interface FloorRepository {
-    fun getFloorsByBuilding (buildingId: Int): Flow<List<Floor>>
+    fun getFloorsByBuilding (buildingId: Long): Flow<List<Floor>>
 
-    fun getFloorById (id: Int): Flow<Floor>
+    fun getFloorById (id: Long): Flow<Floor>
 
     suspend fun deleteFloor (floor: Floor)
 

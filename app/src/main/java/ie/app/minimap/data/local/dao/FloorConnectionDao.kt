@@ -21,20 +21,20 @@ interface FloorConnectionDao {
     suspend fun delete(connection: FloorConnection)
 
     @Query("SELECT * FROM floor_connections WHERE id = :id")
-    fun getItem(id: Int): Flow<FloorConnection>
+    fun getItem(id: Long): Flow<FloorConnection>
 
     @Query("""
         SELECT * FROM floor_connections 
         WHERE building_id = :buildingId 
         ORDER BY from_floor, type ASC
     """)
-    fun getConnectionsByBuilding(buildingId: Int): Flow<List<FloorConnection>>
+    fun getConnectionsByBuilding(buildingId: Long): Flow<List<FloorConnection>>
 
     @Query("""
         SELECT * FROM floor_connections 
         WHERE from_floor = :floorId OR to_floor = :floorId
         ORDER BY id ASC
     """)
-    fun getConnectionsByFloor(floorId: Int): Flow<List<FloorConnection>>
+    fun getConnectionsByFloor(floorId: Long): Flow<List<FloorConnection>>
 
 }
