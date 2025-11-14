@@ -1,4 +1,4 @@
-package ie.app.minimap.ui.screens
+package ie.app.minimap.ui.screens.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

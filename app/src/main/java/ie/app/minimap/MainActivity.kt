@@ -41,16 +41,16 @@ class MainActivity : ComponentActivity() {
                     cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                 }
             }
-            LaunchedEffect(Unit) {
-                when (ArCoreApk.getInstance().requestInstall(this@MainActivity, !installRequested)) {
-                    ArCoreApk.InstallStatus.INSTALL_REQUESTED -> {
-                        installRequested = true
-                    }
-                    ArCoreApk.InstallStatus.INSTALLED -> {
-                        // Left empty; nothing needs to be done.
-                    }
-                }
-            }
+//            LaunchedEffect(Unit) {
+//                when (ArCoreApk.getInstance().requestInstall(this@MainActivity, !installRequested)) {
+//                    ArCoreApk.InstallStatus.INSTALL_REQUESTED -> {
+//                        installRequested = true
+//                    }
+//                    ArCoreApk.InstallStatus.INSTALLED -> {
+//                        // Left empty; nothing needs to be done.
+//                    }
+//                }
+//            }
             MiniMapTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     MiniMapNav(modifier = Modifier.fillMaxSize().padding(innerPadding))

@@ -8,8 +8,8 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import ie.app.minimap.ui.screens.HomeScreen
-import ie.app.minimap.ui.screens.MapEditorScreen
+import ie.app.minimap.ui.screens.home.HomeScreen
+import ie.app.minimap.ui.screens.editor.MapEditorScreen
 import ie.app.minimap.ui.screens.MapViewerScreen
 import kotlinx.serialization.Serializable
 
@@ -47,7 +47,7 @@ fun MiniMapNav(
                 MapEditorScreen()
             }
             entry(MapViewer) {
-                MapViewerScreen()
+//                MapViewerScreen()
             }
         }
     )
