@@ -15,13 +15,13 @@ interface VenueDao {
     fun getVenuebyId(id: Int): Flow<List<Venue>>
 
     @Insert
-    suspend fun insertVenue(venue: Venue): Int
+    suspend fun insertVenue(venue: Venue): Long
 
     @Insert
-    suspend fun insertBuilding(building: Building): Int
+    suspend fun insertBuilding(building: Building): Long
 
     @Insert
-    suspend fun insertFloor(floor: Floor): Int
+    suspend fun insertFloor(floor: Floor): Long
 
     @Transaction
     suspend fun createVenueWithDefaults(
@@ -31,21 +31,21 @@ interface VenueDao {
     ): Triple<Venue, Building, Floor> {
 
         val venue = Venue(name = name, address = address, description = description)
-        val venueId = insertVenue(venue)
+        val venueId = insertVenue(venue).toInt()
 
         val building = Building(
             venueId = venueId,
             name = "Main Building",
             description = "Default building for this venue"
         )
-        val buildingId = insertBuilding(building)
+        val buildingId = insertBuilding(building).toInt()
 
         val floor = Floor(
             buildingId = buildingId,
             level = 1,
             name = "Ground Floor"
         )
-        val floorId = insertFloor(floor)
+        val floorId = insertFloor(floor).toInt()
 
         return Triple(
             venue.copy(id = venueId),
