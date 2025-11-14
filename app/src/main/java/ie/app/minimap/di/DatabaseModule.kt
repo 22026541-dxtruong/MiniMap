@@ -26,4 +26,20 @@ object AppModule {
     @Singleton
     fun provideNodeDao(db: AppDatabase) = db.nodeDao()
 
+    @Provides
+    @Singleton
+    fun provideFloorDao(db: AppDatabase) = db.floorDao()
+
+    @Provides
+    @Singleton
+    fun provideEdgeDao(db: AppDatabase) = db.edgeDao()
+
+    @Provides
+    @Singleton
+    fun provideFloorConnectionDao(db: AppDatabase) = db.floorConnectionDao()
+
+    @Provides
+    @Singleton
+    fun provideVenueDao(db: AppDatabase) = db.venueDao()
+
 }
