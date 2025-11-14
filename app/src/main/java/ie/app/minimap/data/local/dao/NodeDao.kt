@@ -23,6 +23,6 @@ interface NodeDao {
     @Query("SELECT * from nodes WHERE id = :id")
     fun getItem(id: Int): Flow<Node>
 
-    @Query("SELECT * from nodes ORDER BY label ASC")
-    fun getAllItems(): Flow<List<Node>>
+    @Query("SELECT * FROM nodes WHERE floor_id = :floorId ORDER BY id ASC")
+    fun getNodeByFloor(floorId :Int): Flow<List<Node>>
 }
