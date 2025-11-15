@@ -13,7 +13,7 @@ class NodeRepositoryImpl @Inject constructor(
 ) : NodeRepository {
 
     override fun getNodeById(id: Long): Flow<Node> {
-        return nodeDao.getItem(id)
+        return nodeDao.getNode(id)
     }
 
     override fun getNodeByFloor(floorId: Long): Flow<List<Node>> {

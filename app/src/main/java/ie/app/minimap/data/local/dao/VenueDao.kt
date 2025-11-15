@@ -1,6 +1,7 @@
 package ie.app.minimap.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
@@ -12,10 +13,16 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface VenueDao {
     @Query("SELECT * from venues WHERE id = :id")
-    fun getVenueById(id: Long): Flow<List<Venue>>
+    fun getVenueById(id: Long): Flow<Venue>
+
+    @Query("SELECT * from venues")
+    fun getAllVenues(): Flow<List<Venue>>
 
     @Insert
     suspend fun insertVenue(venue: Venue): Long
+
+    @Delete
+    suspend fun deleteVenue(venue: Venue)
 
     @Insert
     suspend fun insertBuilding(building: Building): Long
@@ -28,7 +35,7 @@ interface VenueDao {
         name: String,
         address: String,
         description: String
-    ): Triple<Venue, Building, Floor> {
+    ): Venue {
 
         val venue = Venue(name = name, address = address, description = description)
         val venueId = insertVenue(venue)
@@ -45,12 +52,8 @@ interface VenueDao {
             level = 1,
             name = "Ground Floor"
         )
-        val floorId = insertFloor(floor)
+        insertFloor(floor)
 
-        return Triple(
-            venue.copy(id = venueId),
-            building.copy(id = buildingId),
-            floor.copy(id = floorId)
-        )
+        return venue.copy(id = venueId)
     }
 }

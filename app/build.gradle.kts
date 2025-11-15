@@ -9,7 +9,9 @@ plugins {
 
 android {
     namespace = "ie.app.minimap"
-    compileSdk = 36
+    compileSdk {
+        version = release(36)
+    }
 
     defaultConfig {
         applicationId = "ie.app.minimap"

@@ -21,7 +21,7 @@ interface NodeDao {
     suspend fun delete(node: Node)
 
     @Query("SELECT * from nodes WHERE id = :id")
-    fun getItem(id: Long): Flow<Node>
+    fun getNode(id: Long): Flow<Node>
 
     @Query("SELECT * FROM nodes WHERE floor_id = :floorId ORDER BY id ASC")
     fun getNodeByFloor(floorId :Long): Flow<List<Node>>

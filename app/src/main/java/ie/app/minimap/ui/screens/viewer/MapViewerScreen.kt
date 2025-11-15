@@ -1,4 +1,4 @@
-package ie.app.minimap.ui.screens
+package ie.app.minimap.ui.screens.viewer
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
