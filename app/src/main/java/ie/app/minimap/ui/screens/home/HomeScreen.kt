@@ -68,59 +68,84 @@ fun HomeScreen(
             }
         )
     }
-    when {
-        uiState.isLoading -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+    Scaffold(
+        topBar = {
+            HomeTopBar(
+                onSearchClicked = {},
+                onQrScanClicked = {}
+            )
+        },
+        floatingActionButton = {
+            AddVenueFAB(onClick = { isOpenDialog = true })
+        },
+        modifier = modifier
+    ) { innerPadding ->
+
+        Box(Modifier.fillMaxSize().padding(innerPadding)) {
+
+            // --- Nội dung chính ---
+            when {
+                uiState.venues.isEmpty() && !uiState.isLoading && uiState.error == null -> {
+                    Box(
+                        Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        Text("Chưa có địa điểm nào")
+                    }
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(uiState.venues, key = { it.id }) { venue ->
+                            VenueCard(
+                                id = venue.id,
+                                name = venue.name,
+                                address = venue.address,
+                                description = venue.description,
+                                onClick = { onClickVenue(venue.id) }
+                            )
+                        }
+                    }
+                }
             }
-        }
 
-        uiState.error != null -> {
-            Text("Error: ${uiState.error}", color = Color.Red)
-        }
-
-        uiState.venues.isEmpty() -> {
-            Text("Chưa có địa điểm nào")
-        }
-
-        else -> {
-            Scaffold(
-                topBar = {
-                    HomeTopBar(
-                        onSearchClicked = {},
-                        onQrScanClicked = {}
-                    )
-                },
-                floatingActionButton = {
-                    AddVenueFAB(
-                        onClick = { isOpenDialog = true }
-                    )
-                },
-                modifier = modifier
-            ) { innerPadding ->
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        top = innerPadding.calculateTopPadding() + 16.dp,
-                        bottom = innerPadding.calculateBottomPadding(),
-                        start = 0.dp,
-                        end = 0.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+            // --- LOADING overlay ---
+            if (uiState.isLoading) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)),  // optional dim
+                    contentAlignment = Alignment.Center
                 ) {
+                    CircularProgressIndicator()
+                }
+            }
 
-                    items(uiState.venues, key = { venue -> venue.id }) { venue ->
-                        VenueCard(
-                            id = venue.id,
-                            name = venue.name,
-                            address = venue.description,
-                            onClick = { onClickVenue(venue.id) }
-                        )
+            // --- ERROR overlay ---
+            uiState.error?.let { error ->
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)), // optional
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Error: $error", color = Color.Red)
+//                        Spacer(Modifier.height(8.dp))
+//                        Button(onClick = { onRetry() }) {
+//                            Text("Thử lại")
+//                        }
                     }
                 }
             }
         }
     }
+
 }
 
 @Composable
@@ -340,4 +365,3 @@ fun AddVenueDialog(
         }
     }
 }
-

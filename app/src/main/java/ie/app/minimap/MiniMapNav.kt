@@ -12,7 +12,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import ie.app.minimap.ui.screens.home.HomeScreen
 import ie.app.minimap.ui.screens.editor.MapEditorScreen
-import ie.app.minimap.ui.screens.event.EventScreen
+//import ie.app.minimap.ui.screens.event.EventScreen
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -50,12 +50,12 @@ fun MiniMapNav(
 //                    onClickMapViewer = { backStack.add(MapViewer) },
                 )
             }
-            entry<VenueDetails> { key ->
-                EventScreen(
-                    key.venueId,
-                    modifier = Modifier.padding(innerPadding)
-                )
-            }
+//            entry<VenueDetails> { key ->
+//                EventScreen(
+//                    key.venueId,
+//                    modifier = Modifier.padding(innerPadding)
+//                )
+//            }
             entry(MapEditor) {
                 MapEditorScreen()
             }
