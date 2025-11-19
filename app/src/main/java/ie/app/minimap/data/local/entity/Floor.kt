@@ -22,8 +22,8 @@ data class Floor(
     val id: Long = 0,
     @ColumnInfo(name = "building_id")
     val buildingId: Long = 0,
-    val level: Long = 0,
-    val name: String,
+    val level: Long = 1,
+    val name: String = "Floor 1",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
 )

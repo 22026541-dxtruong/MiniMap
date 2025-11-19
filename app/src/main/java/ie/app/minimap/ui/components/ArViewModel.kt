@@ -1,15 +1,17 @@
-package ie.app.minimap
+package ie.app.minimap.ui.components
 
 import android.app.Application
 import android.content.Context
 import android.util.Log
 import android.view.MotionEvent
 import android.widget.Toast
-import androidx.lifecycle.AndroidViewModel
+import androidx.compose.ui.geometry.Offset
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ar.core.Anchor
 import com.google.ar.core.Config
 import com.google.ar.core.Plane
+import com.google.ar.core.Pose
 import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.CameraNotAvailableException
@@ -29,6 +31,8 @@ import com.google.ar.sceneform.ux.FootprintSelectionVisualizer
 import com.google.ar.sceneform.ux.TransformableNode
 import com.google.ar.sceneform.ux.TransformationSystem
 import dagger.hilt.android.lifecycle.HiltViewModel
+import ie.app.minimap.data.local.entity.Node
+import ie.app.minimap.data.local.repository.MapRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,16 +52,17 @@ sealed interface ArUiState {
 }
 
 @HiltViewModel
-class MiniMapViewModel @Inject constructor(
-    private val application: Application
-) : AndroidViewModel(application) {
+class ArViewModel @Inject constructor(
+    private val application: Application,
+    private val mapRepository: MapRepository
+) : ViewModel() {
     private val _uiState = MutableStateFlow<ArUiState>(ArUiState.Loading)
     val uiState: StateFlow<ArUiState> = _uiState.asStateFlow()
     // Biến nội bộ của ViewModel
     private var arSession: Session? = null
     private var modelRenderable: ModelRenderable? = null
     private var transformationSystem: TransformationSystem? = null
-    private val hostedAnchors = mutableListOf<Anchor>()
+    private val hostedNodes = mutableMapOf<Anchor, Node>()
     private var anchorsToResolve = mutableListOf<String>()
     private var hasResolveBeenAttempted = false
 
@@ -204,36 +209,55 @@ class MiniMapViewModel @Inject constructor(
         transformationSystem = null
     }
 
+    fun worldToCanvas(x: Float, y: Float, scaleFactor: Float = 150f): Offset { // Ví dụ: 1m ngoài đời = 100 đơn vị trên map
+        return Offset(x * scaleFactor, y * scaleFactor)
+    }
+
     /**
      * Composable gọi khi người dùng chạm vào màn hình
      */
     fun onSceneTouched(
         arSceneView: ArSceneView,
-        hitTestResult: HitTestResult,
-        motionEvent: MotionEvent
+        pose: Pose,
+        name: String,
+        type: String,
+        floorId: Long
     ) {
         val currentState = _uiState.value
-        if (currentState !is ArUiState.Ready) return // Chỉ xử lý khi đã sẵn sàng
+        if (currentState !is ArUiState.Ready) return
 
-        // 1. Chuyển sự kiện chạm cho TransformationSystem (để xoay/di chuyển)
-        currentState.transformationSystem.onTouch(hitTestResult, motionEvent)
+        val model = modelRenderable ?: return
+        val session = arSceneView.session ?: return
+        val anchor = session.createAnchor(pose)
 
-        // 2. Xử lý đặt vật thể
-        if (motionEvent.action == MotionEvent.ACTION_UP) {
-            val currentModel = modelRenderable ?: return // Model chưa tải xong
+        // 3. Đặt object vào scene
+        placeObject(arSceneView, anchor, model, currentState.transformationSystem)
+//        hostedNodes.put(anchor, mapRepository.upsertNode())
+        viewModelScope.launch {
+            // Chuyển đổi tọa độ AR (mét) sang tọa độ Map (pixel/đơn vị vẽ)
+            // Lưu ý: AR dùng (x, y, z) với y là độ cao. Mặt sàn phẳng là (x, z).
+            // Map 2D dùng (x, y).
+            // Ta map: AR X -> Map X, AR Z -> Map Y.
+            val pos = worldToCanvas(pose.tx(), pose.tz())
 
-            val frame = arSceneView.arFrame ?: return
-            val hits = frame.hitTest(motionEvent)
-            val hit = hits.firstOrNull {
-                val trackable = it.trackable
-                (trackable is Plane && trackable.isPoseInPolygon(it.hitPose))
-            }
+            val newNode = Node(
+                floorId = floorId, // ID của tầng hiện tại
+                x = pos.x,
+                y = pos.y,
+                label = name, // Tên tạm
+                type = type // Loại tạm
+            )
 
-            if (hit != null) {
-                val anchor = hit.createAnchor()
-                placeObject(arSceneView, anchor, currentModel, currentState.transformationSystem)
-                hostedAnchors.add(anchor)
-            }
+            // Lưu vào DB và lấy ID trả về
+            val nodeId = mapRepository.upsertNode(newNode)
+
+            // Cập nhật lại Node với ID thực tế (để sau này dùng cho cloud mapping)
+            val savedNode = newNode.copy(id = nodeId)
+
+            // Lưu vào map để lát nữa export ra file JSON (Cloud Anchor ID <-> Node ID)
+            hostedNodes[anchor] = savedNode
+
+            Log.d("ArViewModel", "Đã thêm Node vào DB: ID=$nodeId tại (${savedNode.x}, ${savedNode.y})")
         }
     }
 
@@ -362,16 +386,19 @@ class MiniMapViewModel @Inject constructor(
     }
 
     fun exportCloudAnchorsToFile(context: Context) {
-        if (hostedAnchors.isEmpty()) return
+        if (hostedNodes.isEmpty()) return
 
         viewModelScope.launch(Dispatchers.IO) {
             val jsonList = mutableListOf<String>()
 
             // Chờ tất cả anchor được host xong
-            hostedAnchors.forEach { anchor ->
-                val cloudId = hostCloudAnchor(anchor) // Chờ kết quả từ hàm suspend
+            hostedNodes.forEach { node ->
+                val cloudId = hostCloudAnchor(node.key) // Chờ kết quả từ hàm suspend
                 if (cloudId != null) {
                     jsonList.add(cloudId)
+                    mapRepository.upsertNode(
+                        hostedNodes[node.key]!!.copy(cloudAnchorId = cloudId)
+                    )
                     Log.d("CloudAnchor", "✅ Cloud Anchor ID: $cloudId")
                 } else {
                     Log.e("CloudAnchor", "❌ Không thể host Cloud Anchor.")

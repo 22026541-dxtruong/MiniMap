@@ -3,27 +3,12 @@ package ie.app.minimap.data.local.dto
 import androidx.room.ColumnInfo
 
 data class EventBuildingFloorDto(
-    @ColumnInfo(name = "eventId")
-    val eventId: Int,
-
-    @ColumnInfo(name = "eventName")
+    val eventId: Long,
     val eventName: String?,
-
-    @ColumnInfo(name = "img_url")
     val eventImageUrl: String?,
-
-    @ColumnInfo(name = "buildingId")
-    val buildingId: Int?,
-
-    @ColumnInfo(name = "buildingName")
+    val buildingId: Long?,
     val buildingName: String?,
-
-    @ColumnInfo(name = "floorId")
-    val floorId: Int?,
-
-    @ColumnInfo(name = "floorName")
+    val floorId: Long?,
     val floorName: String?,
-
-    @ColumnInfo(name = "floorLevel")
-    val floorLevel: Int?
+    val floorLevel: Long?
 )

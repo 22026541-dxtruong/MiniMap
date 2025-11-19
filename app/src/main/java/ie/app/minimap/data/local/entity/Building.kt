@@ -22,7 +22,7 @@ data class Building(
     val id: Long = 0,
     @ColumnInfo(name = "venue_id")
     val venueId: Long = 0,
-    val name: String = "",
+    val name: String = "Building 1",
     val description: String = "",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()

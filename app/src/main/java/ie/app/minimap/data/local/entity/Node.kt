@@ -22,12 +22,20 @@ data class Node(
     val id: Long = 0,
     @ColumnInfo(name = "floor_id")
     val floorId: Long = 0,
-    val label: String,
-    val type: String,
-    val x: Long = 0,
-    val y: Long = 0,
+    val label: String = "",
+    val type: String = "",
+    val x: Float = 0f,
+    val y: Float = 0f,
     @ColumnInfo(name = "cloud_anchor_id")
     val cloudAnchorId: String = "",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    companion object {
+        const val ROOM = "Room"
+        const val HALLWAY = "Hallway"
+        const val CONNECTOR = "Connector"
+        const val STAIRS = "Stairs"
+        const val ELEVATOR = "Elevator"
+    }
+}

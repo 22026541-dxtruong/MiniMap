@@ -1,5 +1,6 @@
 package ie.app.minimap.ui.screens.home
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -47,6 +48,8 @@ class HomeViewModel @Inject constructor(
                         error = e.message
                     )
                 }
+                Log.e("HomeViewModel", "Error loading venues", e)
+
             }
         }
     }
@@ -54,7 +57,7 @@ class HomeViewModel @Inject constructor(
     fun deleteVenue(venue: Venue) {
         viewModelScope.launch {
             try {
-                venueRepository.deleteVenue(venue)
+                venueRepository.delete(venue)
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
@@ -72,7 +75,7 @@ class HomeViewModel @Inject constructor(
     ): Venue? {
         return try {
             _uiState.update { it.copy(isLoading = true) }
-            val newVenue = venueRepository.createVenueWithDefaults(name, address, description)
+            val newVenue = venueRepository.create(Venue(name = name, address = address, description = description))
             _uiState.update { it.copy(isLoading = false) }
             newVenue
         } catch (e: Exception) {

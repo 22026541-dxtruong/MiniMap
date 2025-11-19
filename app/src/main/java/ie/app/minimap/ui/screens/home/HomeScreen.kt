@@ -1,5 +1,6 @@
 package ie.app.minimap.ui.screens.home
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
@@ -50,7 +51,7 @@ import kotlinx.coroutines.launch
 fun HomeScreen(
     onClickVenue: (Long) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     var isOpenDialog by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
@@ -103,7 +104,6 @@ fun HomeScreen(
                     ) {
                         items(uiState.venues, key = { it.id }) { venue ->
                             VenueCard(
-                                id = venue.id,
                                 name = venue.name,
                                 address = venue.address,
                                 description = venue.description,
@@ -196,12 +196,11 @@ fun HomeTopBar(
 
 @Composable
 fun VenueCard(
-    id: Long = 0,
     name: String = "Annual Gala Dinner",
     address: String = "Some address",
     description: String = "A description of the venue",
     state: String = "Draft", // Published, Draft, Archived
-    onClick: (Long) -> Unit = {},
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     ElevatedCard(
@@ -212,7 +211,7 @@ fun VenueCard(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        onClick = { onClick(id) }
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier

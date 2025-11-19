@@ -21,10 +21,10 @@ data class Vendor(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     @ColumnInfo(name = "event_id")
-    val eventId: Long,
-    val name: String = "",
-    val description: String = "",
-    val category: String = "",
+    val eventId: Long = 0,
+    val name: String = "Vendor",
+    val description: String = "Description",
+    val category: String = "Category",
     @ColumnInfo(name = "contact_info")
     val contactInfo: String = "",
     @ColumnInfo(name = "logo_url")

@@ -1,47 +1,33 @@
 package ie.app.minimap.ui.screens.editor
 
+import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import ie.app.minimap.data.local.repository.EdgeRepository
-import ie.app.minimap.data.local.repository.FloorConnectionRepository
-import ie.app.minimap.data.local.repository.FloorRepository
-import ie.app.minimap.data.local.repository.NodeRepository
+import ie.app.minimap.data.local.entity.Building
+import ie.app.minimap.data.local.entity.Edge
+import ie.app.minimap.data.local.entity.Floor
+import ie.app.minimap.data.local.entity.Node
+import ie.app.minimap.data.local.repository.MapRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import java.util.UUID
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.pow
-
-/**
- * Đại diện cho một nút trên biểu đồ.
- * @param id ID duy nhất.
- * @param label Tên nhãn (ví dụ: "Nút 1").
- * @param position Vị trí tâm (x, y).
- * @param radius Bán kính của nút.
- */
-data class Node(
-    val id: String = UUID.randomUUID().toString(),
-    val label: String,
-    val position: Offset,
-    val radius: Float = 60f
-)
-
-/**
- * Đại diện cho một cạnh nối hai nút.
- * @param id ID duy nhất.
- * @param startNodeId ID của nút bắt đầu.
- * @param endNodeId ID của nút kết thúc.
- */
-data class Edge(
-    val id: String = UUID.randomUUID().toString(),
-    val startNodeId: String,
-    val endNodeId: String
-    // isSelected đã bị xoá khỏi đây
-)
 
 /**
  * Trạng thái khi đang kéo một cạnh mới.
@@ -58,21 +44,37 @@ data class DraggingState(
 // Trạng thái lựa chọn
 sealed class Selection {
     data object None : Selection()
-    data class NodeSelected(val id: String) : Selection()
-    data class EdgeSelected(val id: String) : Selection()
+    data class NodeSelected(val id: Long) : Selection()
+    data class EdgeSelected(val id: Long) : Selection()
 }
+
+data class MapEditorUiState(
+    val selectedBuilding: Building = Building(),
+    val selectedFloor: Floor = Floor(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
 
 @HiltViewModel
 class MapEditorViewModel @Inject constructor(
-    private val nodeRepository: NodeRepository,
-    private val floorRepository: FloorRepository,
-    private val edgeRepository: EdgeRepository,
-    private val floorConnectionRepository: FloorConnectionRepository
+    private val mapRepository: MapRepository
 ) : ViewModel() {
     companion object {
         const val SNAP_THRESHOLD = 80f // Dính khi cách tâm nút 80px
         const val EDGE_TAP_THRESHOLD = 20f // Độ nhạy khi chạm vào cạnh
+        const val RADIUS = 60f // Bán kính nút
     }
+
+    private val _uiState = MutableStateFlow(MapEditorUiState(isLoading = true))
+    val uiState: StateFlow<MapEditorUiState> = _uiState.asStateFlow()
+
+    private val _userPosition = MutableStateFlow<Offset?>(null)
+    val userPosition: StateFlow<Offset?> = _userPosition.asStateFlow()
+
+    private val _buildings = MutableStateFlow<List<Building>>(emptyList())
+    val buildings: StateFlow<List<Building>> = _buildings.asStateFlow()
+    private val _floors = MutableStateFlow<List<Floor>>(emptyList())
+    val floors: StateFlow<List<Floor>> = _floors.asStateFlow()
 
     private val _nodes = MutableStateFlow<List<Node>>(emptyList())
     val nodes: StateFlow<List<Node>> = _nodes.asStateFlow()
@@ -97,15 +99,108 @@ class MapEditorViewModel @Inject constructor(
     private val _selection = MutableStateFlow<Selection>(Selection.None)
     val selection: StateFlow<Selection> = _selection.asStateFlow()
 
+    private val _selectedBuildingIdFlow: Flow<Long?> = _uiState
+        .map { it.selectedBuilding.id }
+        .distinctUntilChanged() // Chỉ phát ra khi ID thực sự thay đổi
+        .filter { it > 0L }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val _floorsFlow: Flow<List<Floor>> = _selectedBuildingIdFlow
+        .filterNotNull()
+        .flatMapLatest { buildingId ->
+            Log.d("MapEditorViewModel", "Building ID: $buildingId")
+            // Tải BuildingWithFloors và chỉ lấy ra danh sách Floors
+            mapRepository.getBuildingWithFloorsByBuildingId(buildingId)
+                .map { it.floors }
+        }
+        .onEach { floors ->
+            // Cập nhật StateFlow _floors và chọn Floor đầu tiên
+            Log.d("MapEditorViewModel", "Floors: $floors")
+            _floors.value = floors
+
+            // Cập nhật SelectedFloor mới
+            _uiState.update { it.copy(selectedFloor = floors.first()) }
+        }
+        .catch { // Xử lý lỗi tải Floors nếu cần
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun setupDependentFlows() {
+        // 1. Lắng nghe sự thay đổi của Building để tải Floors
+        viewModelScope.launch {
+            _floorsFlow.collect() // Khởi động việc lắng nghe Floors (như ở Bước 2)
+        }
+
+        // 2. Lắng nghe sự thay đổi của Floor ID
+        val selectedFloorIdFlow: Flow<Long?> = _uiState
+            .map { it.selectedFloor.id }
+            .distinctUntilChanged()
+            .filter { id -> id > 0L } // ✨ Bổ sung: Chỉ cho phép ID > 0 ✨
+            .map { it }
+
+        viewModelScope.launch {
+            selectedFloorIdFlow
+                .filterNotNull()
+                .flatMapLatest { floorId ->
+                    Log.d("MapEditorViewModel", "setupDependentFlows: $floorId")
+                    // Tải Nodes và Edges cho Floor mới được chọn
+                    mapRepository.getFloorWithNodesAndEdgeByFloorId(floorId)
+
+                }
+                .collect { floorGraph ->
+                    Log.d("MapEditorViewModel", "setupDependentFlows: ${floorGraph.toString()}")
+                    // Cập nhật Nodes và Edges mới
+                    _nodes.value = floorGraph.nodes
+                    _edges.value = floorGraph.edges
+                }
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun loadMap(venueId: Long) {
+        viewModelScope.launch {
+            mapRepository.getAllBuildingsByVenueId(venueId)
+                .collect { buildings ->
+                    // Cập nhật danh sách Buildings
+                    _buildings.value = buildings
+
+                    // Chỉ thiết lập Building và Floor nếu chúng chưa được chọn
+                    _uiState.update { it.copy(selectedBuilding = buildings.first()) }
+
+                    _uiState.update { it.copy(isLoading = false) }
+                }
+        }
+        // Gọi hàm thiết lập Flow phụ thuộc (Xem Bước 3)
+        setupDependentFlows()
+    }
+
+    fun onFloorSelected(floor: Floor) {
+        _uiState.update { it.copy(selectedFloor = floor) }
+    }
+
+    fun onBuildingSelected(building: Building) {
+        _uiState.update { it.copy(selectedBuilding = building) }
+    }
+
+    fun updateUserLocation(x: Float, y: Float) {
+        _userPosition.value = Offset(x, y)
+    }
+
     // --- Quản lý Nút (Node) ---
 
     /** Thêm một nút mới tại vị trí chạm */
     fun addNode(position: Offset) {
-        val newNode = Node(
-            label = "Nút ${_nodes.value.size + 1}",
-            position = position
-        )
-        _nodes.update { it + newNode }
+        viewModelScope.launch {
+            mapRepository.upsertNode(
+                Node(
+                    floorId = _uiState.value.selectedFloor.id,
+                    x = position.x,
+                    y = position.y,
+                    label = "Nút ${_nodes.value.size + 1}"
+                )
+            )
+        }
+//        _nodes.update { it + newNode }
     }
 
     /** Thêm một nút mới gần trung tâm màn hình (so với view hiện tại) */
@@ -117,7 +212,7 @@ class MapEditorViewModel @Inject constructor(
     }
 
     /** Tìm nút theo ID */
-    fun getNodeById(id: String): Node? = _nodes.value.find { it.id == id }
+    fun getNodeById(id: Long): Node? = _nodes.value.find { it.id == id }
 
     // --- Quản lý Cạnh (Edge) ---
 
@@ -126,21 +221,28 @@ class MapEditorViewModel @Inject constructor(
         when (val currentSelection = _selection.value) {
             is Selection.EdgeSelected -> {
                 // Xoá cạnh
-                _edges.update { currentEdges ->
-                    currentEdges.filterNot { it.id == currentSelection.id }
+//                _edges.update { currentEdges ->
+//                    currentEdges.filterNot { it.id == currentSelection.id }
+//                }
+                viewModelScope.launch {
+                    mapRepository.deleteEdge(Edge(id = currentSelection.id))
                 }
             }
 
             is Selection.NodeSelected -> {
                 // Xoá nút
-                _nodes.update { currentNodes ->
-                    currentNodes.filterNot { it.id == currentSelection.id }
-                }
+//                _nodes.update { currentNodes ->
+//                    currentNodes.filterNot { it.id == currentSelection.id }
+//                }
                 // Xoá các cạnh nối với nút đó
-                _edges.update { currentEdges ->
-                    currentEdges.filterNot {
-                        it.startNodeId == currentSelection.id || it.endNodeId == currentSelection.id
-                    }
+//                _edges.update { currentEdges ->
+//                    currentEdges.filterNot {
+//                        it.startNodeId == currentSelection.id || it.endNodeId == currentSelection.id
+//                    }
+//                }
+                viewModelScope.launch {
+                    mapRepository.deleteNode(Node(id = currentSelection.id))
+                    mapRepository.deleteEdgesByNodeId(currentSelection.id)
                 }
             }
 
@@ -236,7 +338,7 @@ class MapEditorViewModel @Inject constructor(
         // Tìm nút mục tiêu để "dính" vào
         val snapTarget = _nodes.value.find {
             it.id != currentDrag.startNode.id && // Không phải nút gốc
-                    (it.position - newWorldPosition).getDistanceSquared() <= SNAP_THRESHOLD.pow(2)
+                    (Offset(it.x, it.y) - newWorldPosition).getDistanceSquared() <= SNAP_THRESHOLD.pow(2)
         }
 
         _draggingState.value = currentDrag.copy(
@@ -269,16 +371,25 @@ class MapEditorViewModel @Inject constructor(
         if (targetNode != null) {
             // Tạo cạnh mới nếu chưa tồn tại
             val edgeExists = _edges.value.any {
-                (it.startNodeId == currentDrag.startNode.id && it.endNodeId == targetNode.id) ||
-                        (it.startNodeId == targetNode.id && it.endNodeId == currentDrag.startNode.id)
+                (it.fromNode == currentDrag.startNode.id && it.toNode == targetNode.id) ||
+                        (it.fromNode == targetNode.id && it.toNode == currentDrag.startNode.id)
             }
             if (!edgeExists) {
-                _edges.update {
-                    it + Edge(
-                        startNodeId = currentDrag.startNode.id,
-                        endNodeId = targetNode.id
+                viewModelScope.launch {
+                    mapRepository.upsertEdge(
+                        Edge(
+                            fromNode = currentDrag.startNode.id,
+                            toNode = targetNode.id,
+                            floorId = _uiState.value.selectedFloor.id
+                        )
                     )
                 }
+//                _edges.update {
+//                    it + Edge(
+//                        startNodeId = currentDrag.startNode.id,
+//                        endNodeId = targetNode.id
+//                    )
+//                }
             }
         }
         // Hoàn tất kéo, xoá trạng thái
@@ -310,15 +421,17 @@ class MapEditorViewModel @Inject constructor(
 
     private fun findTappedNode(offset: Offset): Node? {
         return _nodes.value.find {
-            (it.position - offset).getDistanceSquared() <= it.radius.pow(2)
+            (Offset(it.x, it.y) - offset).getDistanceSquared() <= RADIUS.pow(2)
         }
     }
 
     private fun findTappedEdge(offset: Offset): Edge? {
         val tapThresholdSq = EDGE_TAP_THRESHOLD.pow(2)
         return _edges.value.find { edge ->
-            val p1 = getNodeById(edge.startNodeId)?.position ?: return@find false
-            val p2 = getNodeById(edge.endNodeId)?.position ?: return@find false
+            val fromNode = getNodeById(edge.fromNode) ?: return@find false
+            val p1 = Offset(fromNode.x, fromNode.y)
+            val toNode = getNodeById(edge.toNode) ?: return@find false
+            val p2 = Offset(toNode.x, toNode.y)
             distanceToSegmentSquared(offset, p1, p2) <= tapThresholdSq
         }
     }
@@ -338,4 +451,5 @@ class MapEditorViewModel @Inject constructor(
         )
         return (p - projection).getDistanceSquared()
     }
+
 }

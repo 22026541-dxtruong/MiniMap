@@ -8,12 +8,8 @@ interface VenueRepository {
 
     fun getAllVenues(): Flow<List<Venue>>
 
-    suspend fun deleteVenue(venue: Venue)
+    suspend fun delete(venue: Venue)
 
-    suspend fun createVenueWithDefaults(
-        name: String,
-        address: String,
-        description: String
-    ): Venue
+    suspend fun create(venue: Venue): Venue
 
 }

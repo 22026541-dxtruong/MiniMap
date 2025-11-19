@@ -53,11 +53,11 @@ data class FloorConnection(
     @ColumnInfo(name = "from_floor")
     val fromFloor: Long = 0,
     @ColumnInfo(name = "from_node")
-    val fromNode: String = "",
+    val fromNode: Long = 0,
     @ColumnInfo(name = "to_floor")
     val toFloor: Long = 0,
     @ColumnInfo(name = "to_node")
-    val toNode: String = "",
+    val toNode: Long = 0,
     @ColumnInfo(name = "type")
     val type: String = "",
     val weight: Float = 0f,

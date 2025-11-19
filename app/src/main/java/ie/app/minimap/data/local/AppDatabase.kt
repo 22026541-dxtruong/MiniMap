@@ -2,6 +2,7 @@ package ie.app.minimap.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import ie.app.minimap.data.local.dao.BuildingDao
 import ie.app.minimap.data.local.dao.EdgeDao
 import ie.app.minimap.data.local.dao.EventDao
 import ie.app.minimap.data.local.dao.FloorConnectionDao
@@ -39,4 +40,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun floorConnectionDao() : FloorConnectionDao
     abstract fun edgeDao() : EdgeDao
     abstract fun EventDao() : EventDao
+    abstract fun buildingDao() : BuildingDao
+
 }

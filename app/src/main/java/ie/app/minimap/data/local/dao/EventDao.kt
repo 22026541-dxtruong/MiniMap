@@ -33,9 +33,7 @@ interface EventDao {
     """)
     fun getEventBuildingFloor(venueId: Long): Flow<List<EventBuildingFloorDto>>
 
-    @Transaction
     @Query("SELECT * FROM events WHERE id = :eventId")
-    suspend fun getEventWithVendors(eventId: Long): EventWithVendors?
-
+    fun getEventWithVendors(eventId: Long): EventWithVendors?
 
 }
