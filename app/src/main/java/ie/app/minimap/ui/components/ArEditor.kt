@@ -3,6 +3,7 @@ package ie.app.minimap.ui.components
 import android.annotation.SuppressLint
 import android.util.Log
 import android.view.MotionEvent
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -49,16 +51,17 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ar.core.Plane
 import com.google.ar.core.Pose
 import com.google.ar.sceneform.ArSceneView
-import com.google.ar.sceneform.HitTestResult
 import ie.app.minimap.data.local.entity.Node
 
 @SuppressLint("ClickableViewAccessibility")
 @Composable
 fun ArEditor(
+    venueId: Long,
+    buildingId: Long,
     floorId: Long,
     updateUserLocation: (Offset) -> Unit = {},
     viewModel: ArViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier,
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier,
 ) {
 
     val context = LocalContext.current
@@ -181,10 +184,21 @@ fun ArEditor(
                 if (openDialog) {
                     AddAnchorDialog(
                         onDismiss = { openDialog = false },
-                        onConfirm = { name, type ->
+                        onConfirm = { type, name, description, vendorName, vendorDescription ->
 
                             if (pendingHitPose != null) {
-                                viewModel.onSceneTouched(arSceneView, pose = pendingHitPose!!, name, type, floorId)
+                                viewModel.onSceneTouched(
+                                    arSceneView,
+                                    pose = pendingHitPose!!,
+                                    type,
+                                    name,
+                                    description,
+                                    vendorName,
+                                    vendorDescription,
+                                    floorId,
+                                    buildingId,
+                                    venueId
+                                )
                             }
                             openDialog = false
                         }
@@ -200,18 +214,20 @@ fun ArEditor(
 @Composable
 fun AddAnchorDialog(
     onDismiss: () -> Unit = {},
-    onConfirm: (String, String) -> Unit = { _, _ -> },
+    onConfirm: (type: String, name: String?, description: String?, vendorName: String?, vendorDescription: String?) -> Unit = { _, _, _, _, _ -> },
 ) {
-    var text by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var vendorName by remember { mutableStateOf("") }
+    var vendorDescription by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
-    var selectedType by remember { mutableStateOf(Node.STAIRS) }
+    var selectedType by remember { mutableStateOf(Node.INTERSECTION) }
 
     val nodeTypes = listOf(
         Node.ROOM,
-        Node.HALLWAY,
+        Node.INTERSECTION,
+        Node.BOOTH,
         Node.CONNECTOR,
-        Node.STAIRS,
-        Node.ELEVATOR
     )
 
     Dialog(
@@ -230,15 +246,8 @@ fun AddAnchorDialog(
 
                 Text(
                     text = "Add Anchor",
-                    style = MaterialTheme.typography.titleLarge
-                )
-
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    label = { Text("Anchor name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
 
                 ExposedDropdownMenuBox(
@@ -251,7 +260,7 @@ fun AddAnchorDialog(
                         readOnly = true,
                         label = { Text("Anchor type") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier.menuAnchor()
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
                     )
 
                     // ExposedDropdownMenu có khả năng xử lý danh sách cuộn tốt hơn
@@ -272,10 +281,75 @@ fun AddAnchorDialog(
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                AnimatedContent(
+                    targetState = selectedType,
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)
+                ) {
+                    when (it) {
+                        Node.ROOM -> {
+                            OutlinedTextField(
+                                value = name,
+                                onValueChange = { name = it },
+                                label = { Text("Room's name") },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp)
+                            )
+                        }
+                        Node.BOOTH -> {
+                            Column {
+                                Text(
+                                    "Booth",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(top = 16.dp)
+                                )
+                                OutlinedTextField(
+                                    value = name,
+                                    onValueChange = { name = it },
+                                    label = { Text("Booth's Name") },
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                )
+
+                                OutlinedTextField(
+                                    value = description,
+                                    onValueChange = { description = it },
+                                    minLines = 2,
+                                    label = { Text("Booth's Description") },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                )
+                                Text(
+                                    "Vendor",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(top = 16.dp)
+                                )
+                                OutlinedTextField(
+                                    value =vendorName,
+                                    onValueChange = { vendorName = it },
+                                    label = { Text("Vendor's Name") },
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                )
+
+                                OutlinedTextField(
+                                    value = vendorDescription,
+                                    onValueChange = { vendorDescription = it },
+                                    minLines = 2,
+                                    label = { Text("Vendor's Description") },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                }
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
@@ -286,9 +360,23 @@ fun AddAnchorDialog(
 
                     TextButton(
                         onClick = {
-                            onConfirm(text, selectedType)
+                            when (selectedType) {
+                                Node.ROOM -> {
+                                    onConfirm(selectedType, name, null, null, null)
+                                }
+                                Node.BOOTH -> {
+                                    onConfirm(selectedType, name, description, vendorName, vendorDescription)
+                                }
+                                else -> {
+                                    onConfirm(selectedType, null, null, null, null)
+                                }
+                            }
                         },
-                        enabled = text.isNotBlank()
+                        enabled = when (selectedType) {
+                            Node.ROOM -> name.isNotBlank()
+                            Node.BOOTH -> name.isNotBlank() && description.isNotBlank()
+                            else -> true
+                        }
                     ) {
                         Text("Add")
                     }

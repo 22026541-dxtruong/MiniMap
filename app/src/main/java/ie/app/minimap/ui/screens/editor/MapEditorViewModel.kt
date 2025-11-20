@@ -3,6 +3,7 @@ package ie.app.minimap.ui.screens.editor
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,7 +28,9 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.cos
 import kotlin.math.pow
+import kotlin.math.sin
 
 /**
  * Trạng thái khi đang kéo một cạnh mới.
@@ -92,12 +95,32 @@ class MapEditorViewModel @Inject constructor(
     private val _offset = MutableStateFlow(Offset.Zero)
     val offset: StateFlow<Offset> = _offset.asStateFlow()
 
+    private val _rotation = MutableStateFlow(0f)
+    val rotation: StateFlow<Float> = _rotation.asStateFlow()
+
     // Trạng thái để phân biệt Pan và Kéo-cạnh
     private val _isPanning = MutableStateFlow(false)
 
     // Trạng thái lựa chọn mới
     private val _selection = MutableStateFlow<Selection>(Selection.None)
     val selection: StateFlow<Selection> = _selection.asStateFlow()
+
+    // Theo dõi kích thước màn hình để căn giữa
+    private var _viewSize = IntSize.Zero
+    private var _isInitialized = false
+
+    // --- Quản lý Khởi tạo ---
+
+    fun setScreenSize(size: IntSize) {
+        if (_viewSize == size) return
+        _viewSize = size
+
+        // Chỉ set offset về tâm trong lần đầu tiên (khi app vừa mở)
+        if (!_isInitialized && size.width > 0 && size.height > 0) {
+            _offset.value = Offset(size.width / 2f, size.height / 2f)
+            _isInitialized = true
+        }
+    }
 
     private val _selectedBuildingIdFlow: Flow<Long?> = _uiState
         .map { it.selectedBuilding.id }
@@ -262,11 +285,26 @@ class MapEditorViewModel @Inject constructor(
     // --- Xử lý cử chỉ (Gestures) ---
 
     /**
-     * Chuyển đổi tọa độ Màn hình (Screen) sang tọa độ Thế giới (World)
-     * (Tọa độ đã được pan/zoom)
+     * Hàm tiện ích để xoay một điểm quanh gốc (0,0)
+     */
+    private fun rotatePoint(point: Offset, degrees: Float): Offset {
+        val radians = Math.toRadians(degrees.toDouble())
+        val cos = cos(radians)
+        val sin = sin(radians)
+        val newX = point.x * cos - point.y * sin
+        val newY = point.x * sin + point.y * cos
+        return Offset(newX.toFloat(), newY.toFloat())
+    }
+
+    /**
+     * Chuyển đổi Screen -> World với Offset, Scale và Rotation
+     * Công thức: World = Rotate_Inverse(Screen - Offset) / Scale
      */
     private fun screenToWorld(screenPos: Offset): Offset {
-        return (screenPos - _offset.value) / _scale.value
+        val translated = screenPos - _offset.value
+        // Xoay ngược lại để tìm tọa độ gốc
+        val rotated = rotatePoint(translated, -_rotation.value)
+        return rotated / _scale.value
     }
 
     /**
@@ -397,24 +435,46 @@ class MapEditorViewModel @Inject constructor(
     }
 
     /**
-     * Được gọi khi người dùng Zoom (chỉ xử lý zoom)
+     * Xử lý Zoom, Pan (2 ngón) và Rotate
      */
-    fun onZoom(centroid: Offset, zoom: Float) {
-        // Giới hạn tỷ lệ zoom
-        val newScale = (_scale.value * zoom).coerceIn(0.1f, 5f)
+    fun onTransform(centroid: Offset, pan: Offset, zoom: Float, rotationChange: Float) {
+        // 1. Xác định điểm trên bản đồ nằm dưới tay ở TRẠNG THÁI CŨ
+        // centroid: vị trí hiện tại của tay
+        // pan: độ dịch chuyển của tay so với lần trước
+        // => centroid - pan = vị trí cũ của tay
+        val oldScreenPos = centroid - pan
+        val pivotWorldPos = screenToWorld(oldScreenPos) // Điểm neo trên bản đồ
 
-        // Công thức chuẩn để zoom quanh 1 điểm (centroid)
-        val zoomFactor = newScale / _scale.value
-        _offset.update { (it - centroid) * zoomFactor + centroid }
-        _scale.update { newScale }
+        // 2. Cập nhật Scale và Rotation mới
+        val newScale = (_scale.value * zoom).coerceIn(0.1f, 10f)
+        val newRotation = _rotation.value + rotationChange
+
+        _scale.value = newScale
+        _rotation.value = newRotation
+
+        // 3. Tính toán Offset mới
+        // Mục tiêu: pivotWorldPos (sau khi scale & rotate) phải nằm đúng tại vị trí centroid (vị trí tay hiện tại)
+
+        // Tọa độ vector của điểm neo đã biến đổi (tính từ gốc 0,0 của World)
+        val scaledWorldVector = pivotWorldPos * newScale
+        val rotatedScaledWorldVector = rotatePoint(scaledWorldVector, newRotation)
+
+        // Offset = Vị trí tay hiện tại - Vector điểm neo đã biến đổi
+        _offset.value = centroid - rotatedScaledWorldVector
     }
 
     /**
      * Phóng to/Thu nhỏ (dùng cho nút bấm)
      */
     fun zoom(factor: Float) {
-        // Zoom đơn giản quanh gốc (0,0) của world
-        _scale.update { (it * factor).coerceIn(0.1f, 5f) }
+        // Zoom quanh tâm màn hình hiện tại
+        val centerX = _viewSize.width / 2f
+        val centerY = _viewSize.height / 2f
+        val center = Offset(centerX, centerY)
+
+        // Sử dụng logic onTransform để zoom mượt mà quanh tâm
+        // Giả lập zoom 1.2x hoặc 0.8x
+        onTransform(centroid = center, pan = Offset.Zero, zoom = factor, rotationChange = 0f)
     }
 
     // --- Hàm trợ giúp tính toán ---

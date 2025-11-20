@@ -2,9 +2,7 @@ package ie.app.minimap.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Query
-import androidx.room.Transaction
 import ie.app.minimap.data.local.dto.EventBuildingFloorDto
-import ie.app.minimap.data.local.relations.EventWithVendors
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -33,7 +31,7 @@ interface EventDao {
     """)
     fun getEventBuildingFloor(venueId: Long): Flow<List<EventBuildingFloorDto>>
 
-    @Query("SELECT * FROM events WHERE id = :eventId")
-    fun getEventWithVendors(eventId: Long): EventWithVendors?
+//    @Query("SELECT * FROM events WHERE id = :eventId")
+//    fun getEventWithVendors(eventId: Long): EventWithVendors?
 
 }

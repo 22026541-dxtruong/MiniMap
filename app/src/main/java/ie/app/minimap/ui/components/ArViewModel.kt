@@ -3,14 +3,12 @@ package ie.app.minimap.ui.components
 import android.app.Application
 import android.content.Context
 import android.util.Log
-import android.view.MotionEvent
 import android.widget.Toast
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ar.core.Anchor
 import com.google.ar.core.Config
-import com.google.ar.core.Plane
 import com.google.ar.core.Pose
 import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
@@ -21,7 +19,6 @@ import com.google.ar.core.exceptions.UnavailableSdkTooOldException
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
 import com.google.ar.sceneform.AnchorNode
 import com.google.ar.sceneform.ArSceneView
-import com.google.ar.sceneform.HitTestResult
 import com.google.ar.sceneform.math.Vector3
 import com.google.ar.sceneform.rendering.Color
 import com.google.ar.sceneform.rendering.MaterialFactory
@@ -31,15 +28,22 @@ import com.google.ar.sceneform.ux.FootprintSelectionVisualizer
 import com.google.ar.sceneform.ux.TransformableNode
 import com.google.ar.sceneform.ux.TransformationSystem
 import dagger.hilt.android.lifecycle.HiltViewModel
+import ie.app.minimap.data.local.entity.Booth
 import ie.app.minimap.data.local.entity.Node
+import ie.app.minimap.data.local.entity.Vendor
+import ie.app.minimap.data.local.repository.InfoRepository
 import ie.app.minimap.data.local.repository.MapRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -54,7 +58,8 @@ sealed interface ArUiState {
 @HiltViewModel
 class ArViewModel @Inject constructor(
     private val application: Application,
-    private val mapRepository: MapRepository
+    private val mapRepository: MapRepository,
+    private val infoRepository: InfoRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<ArUiState>(ArUiState.Loading)
     val uiState: StateFlow<ArUiState> = _uiState.asStateFlow()
@@ -219,9 +224,14 @@ class ArViewModel @Inject constructor(
     fun onSceneTouched(
         arSceneView: ArSceneView,
         pose: Pose,
-        name: String,
         type: String,
-        floorId: Long
+        name: String?,
+        description: String?,
+        vendorName: String?,
+        vendorDescription: String?,
+        floorId: Long,
+        buildingId: Long,
+        venueId: Long
     ) {
         val currentState = _uiState.value
         if (currentState !is ArUiState.Ready) return
@@ -244,7 +254,7 @@ class ArViewModel @Inject constructor(
                 floorId = floorId, // ID của tầng hiện tại
                 x = pos.x,
                 y = pos.y,
-                label = name, // Tên tạm
+                label = name ?: "Node in floor $floorId",
                 type = type // Loại tạm
             )
 
@@ -253,6 +263,34 @@ class ArViewModel @Inject constructor(
 
             // Cập nhật lại Node với ID thực tế (để sau này dùng cho cloud mapping)
             val savedNode = newNode.copy(id = nodeId)
+            when (type) {
+                Node.BOOTH -> {
+                    val vendorId = if (vendorName != null && vendorDescription != null) {
+                        // Đảm bảo vendor được insert thành công trước khi lấy ID
+                        val newVendor = Vendor(
+                            name = vendorName,
+                            description = vendorDescription
+                        )
+                        val insertedVendorId = infoRepository.upsertVendor(newVendor) // Chắc chắn lấy vendorId hợp lệ
+                        insertedVendorId // Trả về vendorId hợp lệ
+                    } else 0
+
+                    // Lưu Booth với nodeId và vendorId hợp lệ
+                    if (name != null && description != null) {
+                        infoRepository.upsertBooth(
+                            Booth(
+                                nodeId = nodeId,
+                                vendorId = vendorId,
+                                floorId = floorId,
+                                buildingId = buildingId,
+                                venueId = venueId,
+                                name = name,
+                                description = description
+                            )
+                        )
+                    }
+                }
+            }
 
             // Lưu vào map để lát nữa export ra file JSON (Cloud Anchor ID <-> Node ID)
             hostedNodes[anchor] = savedNode
@@ -390,20 +428,33 @@ class ArViewModel @Inject constructor(
 
         viewModelScope.launch(Dispatchers.IO) {
             val jsonList = mutableListOf<String>()
+            val semaphore = Semaphore(5) // cùng lúc tối đa 5 node
+            val cloudIds = hostedNodes.map { (anchor, _) ->
+                async(Dispatchers.IO) {
+                    semaphore.withPermit {
+                        hostCloudAnchor(anchor)
+                    }
+                }
+            }.awaitAll().filterNotNull()
+
+            cloudIds.forEachIndexed { index, cloudId ->
+                val node = hostedNodes.values.toList()[index]
+                mapRepository.upsertNode(node.copy(cloudAnchorId = cloudId))
+            }
 
             // Chờ tất cả anchor được host xong
-            hostedNodes.forEach { node ->
-                val cloudId = hostCloudAnchor(node.key) // Chờ kết quả từ hàm suspend
-                if (cloudId != null) {
-                    jsonList.add(cloudId)
-                    mapRepository.upsertNode(
-                        hostedNodes[node.key]!!.copy(cloudAnchorId = cloudId)
-                    )
-                    Log.d("CloudAnchor", "✅ Cloud Anchor ID: $cloudId")
-                } else {
-                    Log.e("CloudAnchor", "❌ Không thể host Cloud Anchor.")
-                }
-            }
+//            hostedNodes.forEach { node ->
+//                val cloudId = hostCloudAnchor(node.key) // Chờ kết quả từ hàm suspend
+//                if (cloudId != null) {
+//                    jsonList.add(cloudId)
+//                    mapRepository.upsertNode(
+//                        hostedNodes[node.key]!!.copy(cloudAnchorId = cloudId)
+//                    )
+//                    Log.d("CloudAnchor", "✅ Cloud Anchor ID: $cloudId")
+//                } else {
+//                    Log.e("CloudAnchor", "❌ Không thể host Cloud Anchor.")
+//                }
+//            }
 
             // Tạo JSON từ danh sách cloudId đã host
             val json = """{"anchors": [${jsonList.joinToString(",") { "\"$it\"" }}]}"""

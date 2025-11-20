@@ -1,6 +1,7 @@
 package ie.app.minimap.ui.screens.editor
 
 import android.graphics.Paint
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -39,13 +41,17 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,10 +66,10 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -75,6 +81,7 @@ import ie.app.minimap.data.local.entity.Node
 import ie.app.minimap.ui.components.ArEditor
 import kotlin.collections.forEach
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapEditorScreen(
     venueId: Long,
@@ -90,6 +97,7 @@ fun MapEditorScreen(
     val draggingState by viewModel.draggingState.collectAsState()
     val scale by viewModel.scale.collectAsState()
     val offset by viewModel.offset.collectAsState()
+    val rotation by viewModel.rotation.collectAsState()
     val selection by viewModel.selection.collectAsState() // Theo dõi lựa chọn
     val textPaint = remember {
         Paint().apply {
@@ -98,102 +106,182 @@ fun MapEditorScreen(
             textAlign = Paint.Align.CENTER
         }
     }
+    val coroutineScope = rememberCoroutineScope()
+    val scaffoldState = rememberBottomSheetScaffoldState()
+    val bottomExpanded by remember {
+        derivedStateOf { scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded }
+    }
+
 
     LaunchedEffect(venueId) {
         viewModel.loadMap(venueId)
     }
 
-    Scaffold { innerPadding ->
-        Box(modifier = modifier.fillMaxSize().padding(innerPadding)) {
+    Scaffold(
+        floatingActionButton = {
 
-            Box(Modifier.fillMaxWidth()
-                .fillMaxHeight(0.4f)
-                .align(Alignment.BottomCenter)
-            ) {
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0xFFF0F0F0))
-                        .pointerInput(Unit) {
-                            detectTransformGestures { centroid, pan, zoom, _ ->
-                                viewModel.onZoom(centroid, zoom)
+        }
+    ) { innerPadding ->
+        BottomSheetScaffold(
+            scaffoldState = scaffoldState,
+            sheetPeekHeight = 120.dp + innerPadding.calculateBottomPadding(),
+            sheetContent = {
+                Box(
+                    Modifier
+                        .padding(bottom = innerPadding.calculateBottomPadding())
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.4f)
+                ) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = bottomExpanded,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0xFFF0F0F0))
+                                .onSizeChanged { size ->
+                                    viewModel.setScreenSize(size)
+                                }
+                                .pointerInput(Unit) {
+                                    detectTransformGestures { centroid, pan, zoom, rotation ->
+                                        viewModel.onTransform(
+                                            centroid,
+                                            pan,
+                                            zoom,
+                                            rotation
+                                        )
+                                    }
+                                }
+                                .pointerInput(Unit) {
+                                    detectTapGestures { viewModel.onTap(it) }
+                                }
+                                .pointerInput(Unit) {
+                                    detectDragGestures(
+                                        onDragStart = viewModel::onDragStart,
+                                        onDrag = { change, dragAmount ->
+                                            viewModel.onDragGesture(change, dragAmount)
+                                            change.consume()
+                                        },
+                                        onDragEnd = viewModel::onDragEnd,
+                                        onDragCancel = viewModel::onDragEnd
+                                    )
+                                }
+                        ) {
+                            withTransform({
+                                translate(offset.x, offset.y)
+                                rotate(degrees = rotation, pivot = Offset.Zero)
+                                scale(scale = scale, pivot = Offset.Zero)
+                            }) {
+                                drawEdges(edges, nodes, selection, scale)
+                                drawDraggingLine(draggingState, scale)
+                                drawNodes(nodes, textPaint, draggingState, selection, scale)
+                                drawUserPosition(userPosition, scale)
                             }
                         }
-                        .pointerInput(Unit) {
-                            detectTapGestures { viewModel.onTap(it) }
+                    }
+
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = bottomExpanded,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd),
+                    ) {
+                        Row(
+                            Modifier
+                                .padding(8.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            if (selection != Selection.None) {
+                                FilledTonalIconButton(onClick = viewModel::deleteSelection) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete",
+                                        tint = Color.Red
+                                    )
+                                }
+                            }
+                            FilledTonalIconButton(onClick = { viewModel.zoom(1.2f) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Zoom in"
+                                )
+                            }
+                            FilledTonalIconButton(onClick = { viewModel.zoom(0.8f) }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.outline_check_indeterminate_small_24),
+                                    contentDescription = "Zoom out"
+                                )
+                            }
                         }
-                        .pointerInput(Unit) {
-                            detectDragGestures(
-                                onDragStart = viewModel::onDragStart,
-                                onDrag = { change, dragAmount ->
-                                    viewModel.onDragGesture(change, dragAmount)
-                                    change.consume()
-                                },
-                                onDragEnd = viewModel::onDragEnd,
-                                onDragCancel = viewModel::onDragEnd
-                            )
+                    }
+
+                    FloorsDropDownMenu(
+                        modifier = Modifier.align(Alignment.TopStart),
+                        floors = floors,
+                        selectedFloor = uiState.selectedFloor,
+                        onFloorSelected = viewModel::onFloorSelected
+                    ) {
+                        AnimatedContent(
+                            targetState = bottomExpanded,
+                        ) {
+                            when (it) {
+                                true -> FilledTonalIconButton(
+                                    onClick = { },
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.stacks_add_24dp),
+                                        contentDescription = "Show Floors",
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .padding(4.dp)
+                                    )
+                                }
+
+                                else -> BuildingsDropDownMenu(
+                                    buildings = buildings,
+                                    selectedBuilding = uiState.selectedBuilding,
+                                    onBuildingSelected = viewModel::onBuildingSelected
+                                )
+                            }
                         }
-                ) {
-                    withTransform({
-                        translate(offset.x, offset.y)
-                        scale(scale = scale, pivot = Offset.Zero)
-                    }) {
-                        drawEdges(edges, nodes, selection)
-                        drawDraggingLine(draggingState)
-                        drawNodes(nodes, textPaint, draggingState, selection)
-                        drawUserPosition(userPosition)
+                    }
+
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = bottomExpanded,
+                        modifier = Modifier.align(Alignment.BottomStart),
+                    ) {
+                        BuildingsDropDownMenu(
+                            buildings = buildings,
+                            selectedBuilding = uiState.selectedBuilding,
+                            onBuildingSelected = viewModel::onBuildingSelected
+                        ) {
+                            FilledTonalIconButton(
+                                onClick = { },
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.outline_domain_add_24),
+                                    contentDescription = "Show Floors",
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .padding(4.dp)
+                                )
+                            }
+                        }
                     }
                 }
-
-                Row(
-                    Modifier
-                        .padding(8.dp)
-                        .align(Alignment.TopEnd),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    if (selection != Selection.None) {
-                        FilledTonalIconButton(onClick = viewModel::deleteSelection) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                tint = Color.Red
-                            )
-                        }
-                    }
-                    FilledTonalIconButton(onClick = { viewModel.zoom(1.2f) }) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Zoom in"
-                        )
-                    }
-                    FilledTonalIconButton(onClick = { viewModel.zoom(0.8f) }) {
-                        Icon(
-                            painter = painterResource(R.drawable.outline_check_indeterminate_small_24),
-                            contentDescription = "Zoom out"
-                        )
-                    }
-                }
-
-                FloorsDropDownMenu(
-                    modifier = Modifier.align(Alignment.TopStart),
-                    floors = floors,
-                    selectedFloor = uiState.selectedFloor,
-                    onFloorSelected = viewModel::onFloorSelected
-                )
-
-                BuildingsDropDownMenu(
-                    modifier = Modifier.align(Alignment.BottomStart),
-                    buildings = buildings,
-                    selectedBuilding = uiState.selectedBuilding,
-                    onBuildingSelected = viewModel::onBuildingSelected
+            }
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(innerPadding)
+            ) {
+                ArEditor(
+                    venueId = venueId,
+                    buildingId = uiState.selectedBuilding.id,
+                    floorId = uiState.selectedFloor.id,
+                    updateUserLocation = { viewModel.updateUserLocation(it.x, it.y) },
+                    modifier = Modifier.fillMaxSize()
                 )
             }
-
-        ArEditor(
-            floorId = uiState.selectedFloor.id,
-            updateUserLocation = { viewModel.updateUserLocation(it.x, it.y) },
-            modifier = Modifier.fillMaxHeight(0.6f)
-            .align(Alignment.TopCenter))
         }
     }
 }
@@ -204,7 +292,8 @@ fun FloorsDropDownMenu(
     floors: List<Floor>,
     selectedFloor: Floor,
     onFloorSelected: (Floor) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit = {}
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -237,7 +326,9 @@ fun FloorsDropDownMenu(
                 Icon(
                     painter = painterResource(R.drawable.outline_stacks_24),
                     contentDescription = "Floors",
-                    modifier = Modifier.size(24.dp).padding(4.dp)
+                    modifier = Modifier
+                        .size(24.dp)
+                        .padding(4.dp)
                 )
                 Text(
                     selectedFloor.name,
@@ -267,44 +358,29 @@ fun FloorsDropDownMenu(
                 }
             }
         }
-        FilledTonalIconButton(
-            onClick = {  },
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.stacks_add_24dp),
-                contentDescription = "Show Floors",
-                modifier = Modifier.size(24.dp).padding(4.dp)
-            )
-        }
+        content()
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BuildingsDropDownMenu(
-    buildings: List<Building> = (1..10).toList().map { Building(it.toLong(), name = "Tòa nhà $it") },
+    buildings: List<Building> = (1..10).toList()
+        .map { Building(it.toLong(), name = "Tòa nhà $it") },
     selectedBuilding: Building = Building(1, name = "Tòa nhà 1"),
     onBuildingSelected: (Building) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit = {}
 ) {
     var expanded by remember { mutableStateOf(false) }
 
     Row(
         modifier = modifier
-            .padding(8.dp)
             .height(50.dp)
             .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        FilledTonalIconButton(
-            onClick = {  },
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.outline_domain_add_24),
-                contentDescription = "Show Floors",
-                modifier = Modifier.size(24.dp).padding(4.dp)
-            )
-        }
+        content()
         Row(
             modifier = Modifier
                 .padding(8.dp)
@@ -314,14 +390,17 @@ fun BuildingsDropDownMenu(
                     width = 2.dp,
                     color = Color.Gray, // Hoặc dùng màu Material
                     shape = RoundedCornerShape(4.dp) // Hình bo góc
-                ).clickable { expanded = !expanded },
+                )
+                .clickable { expanded = !expanded },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             Icon(
                 painter = painterResource(R.drawable.outline_domain_24),
                 contentDescription = "Buildings",
-                modifier = Modifier.size(24.dp).padding(4.dp)
+                modifier = Modifier
+                    .size(24.dp)
+                    .padding(4.dp)
             )
             Text(
                 selectedBuilding.name,
@@ -357,7 +436,8 @@ fun BuildingsDropDownMenu(
                             building.name,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
-                            textAlign = TextAlign.Center)
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
@@ -370,26 +450,31 @@ fun BuildingsDropDownMenu(
 private fun DrawScope.drawEdges(
     edges: List<Edge>,
     nodes: List<Node>,
-    selection: Selection
+    selection: Selection,
+    scale: Float
 ) {
+    val baseStrokeWidth = 5f
+    val selectedStrokeWidth = 10f
     edges.forEach { edge ->
         val startNode = nodes.find { it.id == edge.fromNode }
         val endNode = nodes.find { it.id == edge.toNode }
 
         if (startNode != null && endNode != null) {
             val isSelected = (selection as? Selection.EdgeSelected)?.id == edge.id
+            val currentStrokeWidth =
+                (if (isSelected) selectedStrokeWidth else baseStrokeWidth) / scale
 
             drawLine(
                 color = if (isSelected) Color.Red else Color.Black,
                 start = Offset(startNode.x, startNode.y),
                 end = Offset(endNode.x, endNode.y),
-                strokeWidth = if (isSelected) 10f else 5f
+                strokeWidth = currentStrokeWidth
             )
         }
     }
 }
 
-private fun DrawScope.drawDraggingLine(draggingState: DraggingState?) {
+private fun DrawScope.drawDraggingLine(draggingState: DraggingState?, scale: Float) {
     draggingState?.let { drag ->
         val startPos = Offset(drag.startNode.x, drag.startNode.y)
         // Nếu "dính" thì vẽ đến tâm nút, nếu không thì vẽ đến ngón tay
@@ -403,7 +488,10 @@ private fun DrawScope.drawDraggingLine(draggingState: DraggingState?) {
             start = startPos,
             end = endPos,
             strokeWidth = 6f,
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 10f), 0f)
+            pathEffect = PathEffect.dashPathEffect(
+                floatArrayOf(20f / scale, 10f / scale), // Dash cũng phải scale
+                0f
+            )
         )
     }
 }
@@ -412,25 +500,29 @@ private fun DrawScope.drawNodes(
     nodes: List<Node>,
     textPaint: Paint,
     draggingState: DraggingState?,
-    selection: Selection
+    selection: Selection,
+    scale: Float
 ) {
+    textPaint.textSize = 30f / scale
     nodes.forEach { node ->
         // Kiểm tra xem nút này có đang được chọn không
         val isSelected = (selection as? Selection.NodeSelected)?.id == node.id
+
+        val strokeWidth = (if (isSelected) 8f else 3f) / scale
 
         // Vẽ vòng tròn chính của nút
         drawCircle(
             color = Color(0xFF3B82F6), // Màu xanh dương
             center = Offset(node.x, node.y),
-            radius = MapEditorViewModel.RADIUS
+            radius = MapEditorViewModel.RADIUS / scale
         )
 
         // Vẽ viền
         drawCircle(
             color = if (isSelected) Color.Red else Color.Black, // Màu viền đỏ nếu được chọn
             center = Offset(node.x, node.y),
-            radius = MapEditorViewModel.RADIUS,
-            style = Stroke(width = if (isSelected) 8f else 3f) // Viền dày hơn nếu được chọn
+            radius = MapEditorViewModel.RADIUS / scale,
+            style = Stroke(width = strokeWidth) // Viền dày hơn nếu được chọn
         )
 
         // Vẽ nhãn (label)
@@ -443,24 +535,28 @@ private fun DrawScope.drawNodes(
 
         // Vẽ vòng "dính" (snap ring) nếu nút này là mục tiêu
         if (draggingState?.snapTargetNode?.id == node.id) {
+            val snapRadius = MapEditorViewModel.SNAP_THRESHOLD / scale
             drawCircle(
                 color = Color.Green.copy(alpha = 0.5f),
                 center = Offset(node.x, node.y),
-                radius = MapEditorViewModel.SNAP_THRESHOLD,
+                radius = snapRadius,
                 style = Stroke(
-                    width = 5f,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f)
+                    width = 5f / scale,
+                    pathEffect = PathEffect.dashPathEffect(
+                        floatArrayOf(15f / scale, 15f / scale),
+                        0f
+                    )
                 )
             )
         }
     }
 }
 
-private fun DrawScope.drawUserPosition(position: Offset?) {
+private fun DrawScope.drawUserPosition(position: Offset?, scale: Float) {
     if (position == null) return
 
-    val pulseRadius = 50f // Bán kính vòng tỏa
-    val dotRadius = 25f   // Bán kính chấm người dùng
+    val pulseRadius = 50f / scale // Bán kính vòng tỏa
+    val dotRadius = 25f / scale  // Bán kính chấm người dùng
 
     // Vẽ vòng tròn mờ xung quanh (mô phỏng độ chính xác)
     drawCircle(

@@ -1,11 +1,18 @@
 package ie.app.minimap.data.local.repository
 
+import ie.app.minimap.data.local.dao.EventDao
 import ie.app.minimap.data.local.dto.EventBuildingFloorDto
-import ie.app.minimap.data.local.relations.EventWithVendors
 import kotlinx.coroutines.flow.Flow
+import javax.inject.Inject
 
-interface EventRepository {
-    suspend fun getEventByVenueId(venueId : Long) : Flow<List<EventBuildingFloorDto>>
+class EventRepository @Inject constructor(
+    private val eventDao: EventDao
+) {
+    fun getEventByVenueId(venueId: Long): Flow<List<EventBuildingFloorDto>> {
+        return eventDao.getEventBuildingFloor(venueId)
+    }
 
-    suspend fun getEventDetail(eventId: Long) : EventWithVendors?
+//    fun getEventDetail(eventId: Long): EventWithVendors? {
+//        return eventDao.getEventWithVendors(eventId)
+//    }
 }

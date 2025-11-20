@@ -33,9 +33,8 @@ data class Node(
 ) {
     companion object {
         const val ROOM = "Room"
-        const val HALLWAY = "Hallway"
+        const val BOOTH = "Booth"
         const val CONNECTOR = "Connector"
-        const val STAIRS = "Stairs"
-        const val ELEVATOR = "Elevator"
+        const val INTERSECTION = "Intersection"
     }
 }

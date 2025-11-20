@@ -3,7 +3,6 @@ package ie.app.minimap.data.local.relations
 import androidx.room.Embedded
 import androidx.room.Relation
 import ie.app.minimap.data.local.entity.Booth
-import ie.app.minimap.data.local.entity.Event
 import ie.app.minimap.data.local.entity.Vendor
 
 /**
@@ -22,13 +21,13 @@ data class VendorWithBooths(
 /**
  * Relation: Event kèm danh sách VendorWithBooths
  */
-data class EventWithVendors(
-    @Embedded val event: Event,
-
-    @Relation(
-        entity = Vendor::class,
-        parentColumn = "id",         // Event.id
-        entityColumn = "event_id", // Vendor.eventId
-    )
-    val vendors: List<VendorWithBooths>
-)
+//data class EventWithVendors(
+//    @Embedded val event: Event,
+//
+//    @Relation(
+//        entity = Booth::class,
+//        parentColumn = "id",         // Event.id
+//        entityColumn = "event_id", // Vendor.eventId
+//    )
+//    val vendors: List<VendorWithBooths>
+//)
