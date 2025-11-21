@@ -19,11 +19,11 @@ import androidx.room.PrimaryKey
 )
 data class Floor(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
+    val id: Long = 0,
     @ColumnInfo(name = "building_id")
-    val buildingId: Int = 0,
-    val level: Int = 0,
-    val name: String,
+    val buildingId: Long = 0,
+    val level: Long = 1,
+    val name: String = "Floor 1",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
 )

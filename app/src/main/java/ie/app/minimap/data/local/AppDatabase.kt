@@ -2,7 +2,15 @@ package ie.app.minimap.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import ie.app.minimap.data.local.dao.BoothDao
+import ie.app.minimap.data.local.dao.BuildingDao
+import ie.app.minimap.data.local.dao.EdgeDao
+import ie.app.minimap.data.local.dao.EventDao
+import ie.app.minimap.data.local.dao.FloorConnectionDao
+import ie.app.minimap.data.local.dao.FloorDao
 import ie.app.minimap.data.local.dao.NodeDao
+import ie.app.minimap.data.local.dao.VendorDao
+import ie.app.minimap.data.local.dao.VenueDao
 import ie.app.minimap.data.local.entity.Booth
 import ie.app.minimap.data.local.entity.Building
 import ie.app.minimap.data.local.entity.Edge
@@ -29,4 +37,13 @@ import ie.app.minimap.data.local.entity.Venue
     exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun nodeDao(): NodeDao
+    abstract fun venueDao() : VenueDao
+    abstract fun floorDao() : FloorDao
+    abstract fun floorConnectionDao() : FloorConnectionDao
+    abstract fun edgeDao() : EdgeDao
+    abstract fun eventDao() : EventDao
+    abstract fun buildingDao() : BuildingDao
+    abstract fun boothDao() : BoothDao
+    abstract fun vendorDao() : VendorDao
+
 }

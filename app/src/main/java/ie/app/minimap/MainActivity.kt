@@ -9,7 +9,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -41,19 +40,22 @@ class MainActivity : ComponentActivity() {
                     cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                 }
             }
-            LaunchedEffect(Unit) {
-                when (ArCoreApk.getInstance().requestInstall(this@MainActivity, !installRequested)) {
-                    ArCoreApk.InstallStatus.INSTALL_REQUESTED -> {
-                        installRequested = true
-                    }
-                    ArCoreApk.InstallStatus.INSTALLED -> {
-                        // Left empty; nothing needs to be done.
-                    }
-                }
-            }
+//            LaunchedEffect(Unit) {
+//                when (ArCoreApk.getInstance().requestInstall(this@MainActivity, !installRequested)) {
+//                    ArCoreApk.InstallStatus.INSTALL_REQUESTED -> {
+//                        installRequested = true
+//                    }
+//                    ArCoreApk.InstallStatus.INSTALLED -> {
+//                        // Left empty; nothing needs to be done.
+//                    }
+//                }
+//            }
             MiniMapTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    MiniMapNav(modifier = Modifier.fillMaxSize().padding(innerPadding))
+                    MiniMapNav(
+                        innerPadding = innerPadding,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
             }
         }

@@ -14,14 +14,23 @@ import androidx.room.PrimaryKey
             childColumns = ["venue_id"],
             onDelete = ForeignKey.CASCADE,
             onUpdate = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = Booth::class,
+            parentColumns = ["id"],
+            childColumns = ["booth_id"],
+            onDelete = ForeignKey.CASCADE,
+            onUpdate = ForeignKey.CASCADE
         )
     ]
 )
 data class Event(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
+    val id: Long = 0,
+    @ColumnInfo(name = "booth_id")
+    val boothId: Long = 0,
     @ColumnInfo(name = "venue_id")
-    val venueId: Int = 0,
+    val venueId: Long = 0,
     val name: String = "",
     val description: String = "",
     @ColumnInfo(name = "start_time")

@@ -9,13 +9,6 @@ import androidx.room.PrimaryKey
     tableName = "booths",
     foreignKeys = [
         ForeignKey(
-            entity = Event::class,
-            parentColumns = ["id"],
-            childColumns = ["event_id"],
-            onDelete = ForeignKey.CASCADE,
-            onUpdate = ForeignKey.CASCADE
-        ),
-        ForeignKey(
             entity = Vendor::class,
             parentColumns = ["id"],
             childColumns = ["vendor_id"],
@@ -54,21 +47,19 @@ import androidx.room.PrimaryKey
 )
 data class Booth(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
-    @ColumnInfo(name = "event_id")
-    val eventId: Int,
+    val id: Long = 0,
     @ColumnInfo(name = "vendor_id")
-    val vendorId: Int,
+    val vendorId: Long = 0,
     @ColumnInfo(name = "venue_id")
-    val venueId: Int,
+    val venueId: Long = 0,
     @ColumnInfo(name = "building_id")
-    val buildingId: Int,
+    val buildingId: Long = 0,
     @ColumnInfo(name = "floor_id")
-    val floorId: Int,
+    val floorId: Long = 0,
     @ColumnInfo(name = "node_id")
-    val nodeId: Int,
-    val name: String,
-    val description: String,
+    val nodeId: Long = 0,
+    val name: String = "",
+    val description: String = "",
     val category: String = "",
     @ColumnInfo(name = "img_url")
     val imgUrl: String = "",

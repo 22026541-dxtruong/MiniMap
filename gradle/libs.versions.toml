@@ -1,7 +1,8 @@
 [versions]
 agp = "8.13.1"
-assets = "1.17.1"
 core = "1.51.0"
+filamentAndroid = "1.67.0"
+gltfioAndroid = "1.67.0"
 kotlin = "2.2.0"
 hiltAndroid = "2.57.1"
 hiltNavigationCompose = "1.3.0"
@@ -14,9 +15,8 @@ activityCompose = "1.8.0"
 composeBom = "2024.09.00"
 playServicesAuth = "21.4.0"
 roomRuntime = "2.8.3"
-sceneformUx = "1.17.1"
-nav3Core = "1.0.0-rc01"
-lifecycleViewmodelNav3 = "2.10.0-rc01"
+nav3Core = "1.0.0"
+lifecycleViewmodelNav3 = "2.10.0"
 kotlinSerialization = "2.2.21"
 kotlinxSerializationCore = "1.9.0"
 
@@ -26,10 +26,11 @@ androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-com
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomRuntime" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "roomRuntime" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "roomRuntime" }
-assets = { module = "com.google.ar.sceneform:assets", version.ref = "assets" }
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3Core" }
 androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "nav3Core" }
 androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycleViewmodelNav3" }
+gltfio-android = { module = "com.google.android.filament:gltfio-android", version.ref = "gltfioAndroid" }
+filament-android = { module = "com.google.android.filament:filament-android", version.ref = "filamentAndroid" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinxSerializationCore" }
 core = { module = "com.google.ar:core", version.ref = "core" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }
@@ -48,7 +49,6 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
-sceneform-ux = { module = "com.google.ar.sceneform.ux:sceneform-ux", version.ref = "sceneformUx" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

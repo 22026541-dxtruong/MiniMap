@@ -19,15 +19,22 @@ import androidx.room.PrimaryKey
 )
 data class Node(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
+    val id: Long = 0,
     @ColumnInfo(name = "floor_id")
-    val floorId: Int = 0,
-    val label: String,
-    val type: String,
-    val x: Int = 0,
-    val y: Int = 0,
+    val floorId: Long = 0,
+    val label: String = "",
+    val type: String = "",
+    val x: Float = 0f,
+    val y: Float = 0f,
     @ColumnInfo(name = "cloud_anchor_id")
     val cloudAnchorId: String = "",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    companion object {
+        const val ROOM = "Room"
+        const val BOOTH = "Booth"
+        const val CONNECTOR = "Connector"
+        const val INTERSECTION = "Intersection"
+    }
+}

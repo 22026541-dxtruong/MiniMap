@@ -19,10 +19,10 @@ import androidx.room.PrimaryKey
 )
 data class Building(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
+    val id: Long = 0,
     @ColumnInfo(name = "venue_id")
-    val venueId: Int = 0,
-    val name: String = "",
+    val venueId: Long = 0,
+    val name: String = "Building 1",
     val description: String = "",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()

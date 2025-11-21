@@ -21,12 +21,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ar.sceneform.ArSceneView
-import ie.app.minimap.ArUiState
-import ie.app.minimap.MiniMapViewModel
 
 @Composable
 fun ArViewer(
-    viewModel: MiniMapViewModel = hiltViewModel(),
+    viewModel: ArViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
 ) {
 

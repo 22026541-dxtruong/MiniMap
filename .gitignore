@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Generated Sceneform / Filament files
+sceneformsrc/build/
+sceneformux/build/

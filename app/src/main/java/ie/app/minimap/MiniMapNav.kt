@@ -1,5 +1,6 @@
 package ie.app.minimap
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -8,22 +9,26 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import ie.app.minimap.ui.screens.HomeScreen
-import ie.app.minimap.ui.screens.MapEditorScreen
-import ie.app.minimap.ui.screens.MapViewerScreen
+import ie.app.minimap.ui.screens.home.HomeScreen
+import ie.app.minimap.ui.screens.editor.MapEditorScreen
+import ie.app.minimap.ui.screens.event.EventScreen
 import kotlinx.serialization.Serializable
 
 @Serializable
 data object Home : NavKey
 
 @Serializable
-data object MapEditor : NavKey
+data class MapEditor(val venueId: Long) : NavKey
 
 @Serializable
 data object MapViewer : NavKey
 
+@Serializable
+data class VenueDetails(val venueId: Long) : NavKey
+
 @Composable
 fun MiniMapNav(
+    innerPadding: PaddingValues,
     modifier: Modifier = Modifier
 ) {
     val backStack = rememberNavBackStack(Home)
@@ -37,17 +42,27 @@ fun MiniMapNav(
             rememberViewModelStoreNavEntryDecorator()
         ),
         entryProvider = entryProvider {
-            entry(Home) {
+            entry<Home> {
                 HomeScreen(
-                    onClickMapEditor = { backStack.add(MapEditor) },
-                    onClickMapViewer = { backStack.add(MapViewer) },
+                    onClickVenue = { backStack.add(VenueDetails(it)) },
+//                    onClickMapEditor = { backStack.add(MapEditor) },
+//                    onClickMapViewer = { backStack.add(MapViewer) },
                 )
             }
-            entry(MapEditor) {
-                MapEditorScreen()
+            entry<VenueDetails> { key ->
+                EventScreen(
+                    key.venueId,
+                    onMapClicked = { backStack.add(MapEditor(it)) },
+                    onBackClicked = { backStack.removeLastOrNull() }
+                )
+            }
+            entry<MapEditor> { key ->
+                MapEditorScreen(
+                    venueId = key.venueId,
+                )
             }
             entry(MapViewer) {
-                MapViewerScreen()
+//                MapViewerScreen()
             }
         }
     )
