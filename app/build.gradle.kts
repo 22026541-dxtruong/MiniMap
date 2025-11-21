@@ -62,10 +62,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.kotlinx.serialization.core)
     //Sceneform
-    implementation(libs.sceneform.ux) {
+    implementation(project(":sceneformsrc")) {
         exclude(group = "com.android.support")
     }
-    implementation(libs.assets) {
+    implementation(project(":sceneformux")) {
         exclude(group = "com.android.support")
     }
     //Hilt

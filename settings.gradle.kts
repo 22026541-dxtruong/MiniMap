@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "MiniMap"
 include(":app")
- 
+include(":sceneformsrc")
+include(":sceneformux")

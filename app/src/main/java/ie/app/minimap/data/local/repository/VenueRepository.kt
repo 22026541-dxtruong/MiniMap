@@ -30,6 +30,10 @@ class VenueRepository @Inject constructor(
         venueDao.delete(venue)
     }
 
+    suspend fun upsert(venue: Venue) {
+        venueDao.upsert(venue)
+    }
+
     suspend fun create(venue: Venue): Venue {
         val venueId = database.withTransaction {
             val id = venueDao.upsert(venue)

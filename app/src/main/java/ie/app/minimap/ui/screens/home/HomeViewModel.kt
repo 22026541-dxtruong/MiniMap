@@ -57,7 +57,25 @@ class HomeViewModel @Inject constructor(
     fun deleteVenue(venue: Venue) {
         viewModelScope.launch {
             try {
+                _uiState.update { it.copy(isLoading = true) }
                 venueRepository.delete(venue)
+                _uiState.update { it.copy(isLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        error = e.message
+                    )
+                }
+            }
+        }
+    }
+
+    fun updateVenue(venue: Venue) {
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(isLoading = true) }
+                venueRepository.upsert(venue)
+                _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
