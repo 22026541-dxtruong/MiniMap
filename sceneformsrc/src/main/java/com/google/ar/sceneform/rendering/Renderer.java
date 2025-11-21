@@ -287,7 +287,6 @@ public class Renderer implements UiHelper.RendererCallback {
                 }
 //          if (renderer.beginFrame(swapChainLocal) {
                 if (renderer.beginFrame(swapChainLocal,System.nanoTime())) {
-                    Log.d(TAG, "Begin frame, rendering view");
                     if (preRenderCallback != null) {
                         preRenderCallback.preRender(renderer, swapChainLocal, camera);
                     }
@@ -300,7 +299,6 @@ public class Renderer implements UiHelper.RendererCallback {
                     // views pointing to the same scene.
                     com.google.android.filament.View currentView =
                             cameraProvider.isActive() ? view : emptyView;
-                    Log.d(TAG, "Rendering view, cameraActive=" + cameraProvider.isActive());
                     renderer.render(currentView);
 
                     synchronized (mirrors) {
@@ -444,13 +442,9 @@ public class Renderer implements UiHelper.RendererCallback {
 
     public void setPostProcessingEnabled(boolean enablePostProcessing) {return ;}
 
-
-
     /** @hide Used internally by ArSceneView */
 
     public void setRenderQuality(com.google.android.filament.View.RenderQuality renderQuality) {return ;}
-
-
 
     /**
      * Sets a high performance configuration for the filament view. Disables MSAA, disables
@@ -460,13 +454,6 @@ public class Renderer implements UiHelper.RendererCallback {
      */
 
     public void enablePerformanceMode() {return ;}
-
-
-
-
-
-
-
 
 
     /**
@@ -507,20 +494,9 @@ public class Renderer implements UiHelper.RendererCallback {
         scene.remove(entity);
         lightInstances.remove(instance);
     }
-
-
     private void addModelInstanceInternal(RenderableInstance instance) {return ;}
 
-
-
-
-
-
     private void removeModelInstanceInternal(RenderableInstance instance) {return ;}
-
-
-
-
 
     /** @hide */
     void addInstance(RenderableInstance instance) {

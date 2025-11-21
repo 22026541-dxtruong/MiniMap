@@ -1,4 +1,4 @@
-package ie.app.minimap.ui.screens.editor
+package ie.app.minimap.ui.screens.map
 
 import android.graphics.Paint
 import androidx.compose.animation.AnimatedContent
@@ -83,11 +83,13 @@ import kotlin.collections.forEach
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MapEditorScreen(
+fun MapScreen(
     venueId: Long,
-    viewModel: MapEditorViewModel = hiltViewModel(),
+    viewModel: MapViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
+    var editing by remember { mutableStateOf(false) }
+
     val uiState by viewModel.uiState.collectAsState()
     val userPosition by viewModel.userPosition.collectAsState()
     val buildings by viewModel.buildings.collectAsState()
@@ -274,13 +276,13 @@ fun MapEditorScreen(
             Box(
                 modifier = Modifier.fillMaxSize().padding(innerPadding)
             ) {
-                ArEditor(
-                    venueId = venueId,
-                    buildingId = uiState.selectedBuilding.id,
-                    floorId = uiState.selectedFloor.id,
-                    updateUserLocation = { viewModel.updateUserLocation(it.x, it.y) },
-                    modifier = Modifier.fillMaxSize()
-                )
+//                ArEditor(
+//                    venueId = venueId,
+//                    buildingId = uiState.selectedBuilding.id,
+//                    floorId = uiState.selectedFloor.id,
+//                    updateUserLocation = { viewModel.updateUserLocation(it.x, it.y) },
+//                    modifier = Modifier.fillMaxSize()
+//                )
             }
         }
     }
@@ -514,14 +516,14 @@ private fun DrawScope.drawNodes(
         drawCircle(
             color = Color(0xFF3B82F6), // Màu xanh dương
             center = Offset(node.x, node.y),
-            radius = MapEditorViewModel.RADIUS / scale
+            radius = MapViewModel.RADIUS / scale
         )
 
         // Vẽ viền
         drawCircle(
             color = if (isSelected) Color.Red else Color.Black, // Màu viền đỏ nếu được chọn
             center = Offset(node.x, node.y),
-            radius = MapEditorViewModel.RADIUS / scale,
+            radius = MapViewModel.RADIUS / scale,
             style = Stroke(width = strokeWidth) // Viền dày hơn nếu được chọn
         )
 
@@ -535,7 +537,7 @@ private fun DrawScope.drawNodes(
 
         // Vẽ vòng "dính" (snap ring) nếu nút này là mục tiêu
         if (draggingState?.snapTargetNode?.id == node.id) {
-            val snapRadius = MapEditorViewModel.SNAP_THRESHOLD / scale
+            val snapRadius = MapViewModel.SNAP_THRESHOLD / scale
             drawCircle(
                 color = Color.Green.copy(alpha = 0.5f),
                 center = Offset(node.x, node.y),

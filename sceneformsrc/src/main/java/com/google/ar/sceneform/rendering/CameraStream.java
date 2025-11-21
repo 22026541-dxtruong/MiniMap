@@ -127,7 +127,6 @@ public class CameraStream {
         materialFuture
                 .thenAccept(
                         material -> {
-                            Log.d(TAG, "Camera material loaded successfully");
                             defaultCameraMaterial = material;
 
                             // Only set the camera material if it hasn't already been set to a custom material.
@@ -156,7 +155,6 @@ public class CameraStream {
         int[] dimensions = intrinsics.getImageDimensions();
         int width = dimensions[0];
         int height = dimensions[1];
-        Log.d(TAG, "Texture initialized: width=" + width + ", height=" + height);
 
         cameraTexture = new ExternalTexture(cameraTextureId, width, height);
 
@@ -170,7 +168,6 @@ public class CameraStream {
     }
 
     public void recalculateCameraUvs(Frame frame) {
-        Log.d(TAG, "recalculateCameraUvs called");
         IEngine engine = EngineInstance.getEngine();
 
         FloatBuffer cameraUvCoords = this.cameraUvCoords;
@@ -180,11 +177,9 @@ public class CameraStream {
         adjustCameraUvsForOpenGL();
         cameraVertexBuffer.setBufferAt(
                 engine.getFilamentEngine(), UV_BUFFER_INDEX, transformedCameraUvCoords);
-        Log.d(TAG, "UV coords updated");
     }
 
     public void setCameraMaterial(Material material) {
-        Log.d(TAG, "setCameraMaterial called, initialized=" + isTextureInitialized());
         cameraMaterial = material;
 
         // The ExternalTexture can't be created until we receive the first AR Core Frame so that we
@@ -192,22 +187,17 @@ public class CameraStream {
         // hasn't been created yet so we don't start rendering until we have a valid texture. This will
         // be called again when the ExternalTexture is created.
         if (!isTextureInitialized()) {
-            Log.w(TAG, "Texture not initialized yet, will set material later");
             return;
         }
-        Log.d(TAG, "Setting camera texture to material");
         material.setExternalTexture(MATERIAL_CAMERA_TEXTURE, Preconditions.checkNotNull(cameraTexture));
-        Log.d(TAG, "External texture set, texture=" + cameraTexture.getFilamentTexture());
 
         if (cameraStreamRenderable == UNINITIALIZED_FILAMENT_RENDERABLE) {
             initializeFilamentRenderable();
-            Log.d(TAG, "Initialized filament renderable");
         } else {
             RenderableManager renderableManager = EngineInstance.getEngine().getRenderableManager();
             int renderableInstance = renderableManager.getInstance(cameraStreamRenderable);
             renderableManager.setMaterialInstanceAt(
                     renderableInstance, 0, material.getFilamentMaterialInstance());
-            Log.d(TAG, "Updated material instance");
         }
     }
 
@@ -255,7 +245,6 @@ public class CameraStream {
     private void initializeFilamentRenderable() {
         // create entity id
         cameraStreamRenderable = EntityManager.get().create();
-        Log.d(TAG, "Created camera renderable: " + cameraStreamRenderable);
 
         // create the quad renderable (leave off the aabb)
         RenderableManager.Builder builder = new RenderableManager.Builder(1);
@@ -272,8 +261,6 @@ public class CameraStream {
 
         // add to the scene
         scene.addEntity(cameraStreamRenderable);
-        Log.d(TAG, "Added camera renderable to scene");
-        Log.d(TAG, "Scene entity count: " + scene.getEntityCount());
 
         ResourceManager.getInstance()
                 .getCameraStreamCleanupRegistry()

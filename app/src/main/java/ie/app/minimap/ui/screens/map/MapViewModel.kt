@@ -1,4 +1,4 @@
-package ie.app.minimap.ui.screens.editor
+package ie.app.minimap.ui.screens.map
 
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
@@ -51,7 +51,7 @@ sealed class Selection {
     data class EdgeSelected(val id: Long) : Selection()
 }
 
-data class MapEditorUiState(
+data class MapUiState(
     val selectedBuilding: Building = Building(),
     val selectedFloor: Floor = Floor(),
     val isLoading: Boolean = false,
@@ -59,7 +59,7 @@ data class MapEditorUiState(
 )
 
 @HiltViewModel
-class MapEditorViewModel @Inject constructor(
+class MapViewModel @Inject constructor(
     private val mapRepository: MapRepository
 ) : ViewModel() {
     companion object {
@@ -68,8 +68,8 @@ class MapEditorViewModel @Inject constructor(
         const val RADIUS = 60f // Bán kính nút
     }
 
-    private val _uiState = MutableStateFlow(MapEditorUiState(isLoading = true))
-    val uiState: StateFlow<MapEditorUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(MapUiState(isLoading = true))
+    val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
 
     private val _userPosition = MutableStateFlow<Offset?>(null)
     val userPosition: StateFlow<Offset?> = _userPosition.asStateFlow()

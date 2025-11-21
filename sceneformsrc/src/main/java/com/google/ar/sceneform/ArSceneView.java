@@ -132,10 +132,8 @@ public class ArSceneView extends SceneView {
      */
     public void setupSession(Session session) {
         if (this.session != null) {
-            Log.w(TAG, "The session has already been setup, cannot set it up again.");
             return;
         }
-        Log.d(TAG, "Set texture name to session: " + cameraTextureId);
         // Enforce api level 24
         AndroidPreconditions.checkMinAndroidApiLevel();
 
@@ -384,13 +382,10 @@ public class ArSceneView extends SceneView {
             if (frame == null) {
                 return false;
             }
-            Log.d(TAG, "Frame updated, timestamp: " + frame.getTimestamp());
             // Setup Camera Stream if needed.
             if (!cameraStream.isTextureInitialized()) {
                 cameraStream.initializeTexture(frame);
             }
-            Log.d(TAG, "Frame updated: " + (currentFrame != null));
-            Log.d(TAG, "Texture initialized: " + cameraStream.isTextureInitialized());
 
             // Recalculate camera Uvs if necessary.
             if (shouldRecalculateCameraUvs(frame)) {
@@ -665,7 +660,6 @@ public class ArSceneView extends SceneView {
 
     private void initializeCameraStream() {
         cameraTextureId = GLHelper.createCameraTexture();
-        Log.d(TAG, "Camera texture ID: " + cameraTextureId);
         Renderer renderer = Preconditions.checkNotNull(getRenderer());
         cameraStream = new CameraStream(cameraTextureId, renderer);
     }
