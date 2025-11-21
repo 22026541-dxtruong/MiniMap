@@ -296,13 +296,36 @@ public class CameraStream {
             if (engine == null && !engine.isValid()) {
                 return;
             }
-
+//
+//            if (cameraStreamRenderable != UNINITIALIZED_FILAMENT_RENDERABLE) {
+//                scene.remove(cameraStreamRenderable);
+//            }
+//
+//            engine.destroyIndexBuffer(cameraIndexBuffer);
+//            engine.destroyVertexBuffer(cameraVertexBuffer);
+            // BẮT BUỘC: Remove và destroy renderable TRƯỚC
             if (cameraStreamRenderable != UNINITIALIZED_FILAMENT_RENDERABLE) {
+                // 1. Remove entity khỏi scene
                 scene.remove(cameraStreamRenderable);
+
+                // 2. Destroy renderable component
+                RenderableManager renderableManager = engine.getRenderableManager();
+                int instance = renderableManager.getInstance(cameraStreamRenderable);
+                if (instance != 0) {
+                    renderableManager.destroy(cameraStreamRenderable);
+                }
+
+                // 3. Destroy entity
+                EntityManager.get().destroy(cameraStreamRenderable);
             }
 
-            engine.destroyIndexBuffer(cameraIndexBuffer);
-            engine.destroyVertexBuffer(cameraVertexBuffer);
+            // 4. Cuối cùng mới destroy buffers
+            if (cameraIndexBuffer != null) {
+                engine.destroyIndexBuffer(cameraIndexBuffer);
+            }
+            if (cameraVertexBuffer != null) {
+                engine.destroyVertexBuffer(cameraVertexBuffer);
+            }
         }
     }
 }

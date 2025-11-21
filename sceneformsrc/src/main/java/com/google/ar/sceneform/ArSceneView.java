@@ -262,6 +262,12 @@ public class ArSceneView extends SceneView {
                     if (arSceneView == null) {
                         return;
                     }
+
+                    // Clear planes TRƯỚC KHI pause
+//                    if (arSceneView.planeRenderer != null) {
+//                        arSceneView.planeRenderer.setVisible(false);
+//                    }
+
                     arSceneView.pauseScene();
                 },
                 ThreadPools.getMainExecutor());
@@ -291,6 +297,15 @@ public class ArSceneView extends SceneView {
 
     /** Pause the scene without touching the session */
     private void pauseScene() {
+        // Clear scene trước khi pause
+//        if (planeRenderer != null) {
+//            try {
+//                planeRenderer.setVisible(false);
+//            } catch (Exception e) {
+//                Log.w(TAG, "Error hiding planes", e);
+//            }
+//        }
+
         super.pause();
     }
 

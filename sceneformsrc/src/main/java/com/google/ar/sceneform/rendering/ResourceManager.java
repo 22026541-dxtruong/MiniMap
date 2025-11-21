@@ -98,15 +98,33 @@ public class ResourceManager {
   }
 
   private ResourceManager() {
-    addResourceHolder(textureRegistry);
-    addResourceHolder(materialRegistry);
-    addResourceHolder(modelRenderableRegistry);
-    addViewRenderableRegistry();
-    addResourceHolder(cameraStreamCleanupRegistry);
-    addResourceHolder(externalTextureCleanupRegistry);
-    addResourceHolder(materialCleanupRegistry);
-    addResourceHolder(renderableInstanceCleanupRegistry);
-    addResourceHolder(textureCleanupRegistry);
+//    addResourceHolder(textureRegistry);
+//    addResourceHolder(materialRegistry);
+//    addResourceHolder(modelRenderableRegistry);
+//    addViewRenderableRegistry();
+//    addResourceHolder(cameraStreamCleanupRegistry);
+//    addResourceHolder(externalTextureCleanupRegistry);
+//    addResourceHolder(materialCleanupRegistry);
+//    addResourceHolder(renderableInstanceCleanupRegistry);
+//    addResourceHolder(textureCleanupRegistry);
+      // 1. Renderables phải cleanup TRƯỚC
+      addResourceHolder(renderableInstanceCleanupRegistry);
+
+      // 2. Camera stream và external texture (dùng materials)
+      addResourceHolder(cameraStreamCleanupRegistry);
+      addResourceHolder(externalTextureCleanupRegistry);
+
+      // 3. Materials cleanup SAU renderables
+      addResourceHolder(materialCleanupRegistry);
+
+      // 4. Textures cleanup SAU materials
+      addResourceHolder(textureCleanupRegistry);
+
+      // 5. Registries (chứa cached resources)
+      addResourceHolder(textureRegistry);
+      addResourceHolder(materialRegistry);
+      addResourceHolder(modelRenderableRegistry);
+      addViewRenderableRegistry();
   }
 
   
