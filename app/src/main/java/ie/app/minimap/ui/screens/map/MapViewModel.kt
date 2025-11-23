@@ -27,8 +27,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.PriorityQueue
 import javax.inject.Inject
 import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.pow
 import kotlin.math.sin
 
@@ -47,8 +49,8 @@ data class DraggingState(
 // Trạng thái lựa chọn
 sealed class Selection {
     data object None : Selection()
-    data class NodeSelected(val id: Long) : Selection()
-    data class EdgeSelected(val id: Long) : Selection()
+    data class NodeSelected(val node: Node) : Selection()
+    data class EdgeSelected(val edge: Edge) : Selection()
 }
 
 data class MapUiState(
@@ -73,6 +75,9 @@ class MapViewModel @Inject constructor(
 
     private val _userPosition = MutableStateFlow<Offset?>(null)
     val userPosition: StateFlow<Offset?> = _userPosition.asStateFlow()
+
+    private val _pathOffsetAndNode = MutableStateFlow<Pair<List<Offset>, List<Node>>?>(null)
+    val pathOffsetAndNode: StateFlow<Pair<List<Offset>, List<Node>>?> = _pathOffsetAndNode.asStateFlow()
 
     private val _buildings = MutableStateFlow<List<Building>>(emptyList())
     val buildings: StateFlow<List<Building>> = _buildings.asStateFlow()
@@ -226,14 +231,6 @@ class MapViewModel @Inject constructor(
 //        _nodes.update { it + newNode }
     }
 
-    /** Thêm một nút mới gần trung tâm màn hình (so với view hiện tại) */
-    fun addNewNodeNearScreenCenter() {
-        // Chúng ta không biết kích thước màn hình,
-        // nên chỉ thêm ở vị trí (150, 150) so với góc nhìn hiện tại.
-        val worldPosition = screenToWorld(Offset(150f, 150f))
-        addNode(worldPosition)
-    }
-
     /** Tìm nút theo ID */
     fun getNodeById(id: Long): Node? = _nodes.value.find { it.id == id }
 
@@ -248,7 +245,7 @@ class MapViewModel @Inject constructor(
 //                    currentEdges.filterNot { it.id == currentSelection.id }
 //                }
                 viewModelScope.launch {
-                    mapRepository.deleteEdge(Edge(id = currentSelection.id))
+                    mapRepository.deleteEdge(currentSelection.edge)
                 }
             }
 
@@ -264,8 +261,8 @@ class MapViewModel @Inject constructor(
 //                    }
 //                }
                 viewModelScope.launch {
-                    mapRepository.deleteNode(Node(id = currentSelection.id))
-                    mapRepository.deleteEdgesByNodeId(currentSelection.id)
+                    mapRepository.deleteNode(currentSelection.node)
+                    mapRepository.deleteEdgesByNodeId(currentSelection.node.id)
                 }
             }
 
@@ -317,14 +314,14 @@ class MapViewModel @Inject constructor(
         // 1. Kiểm tra chạm vào nút
         val tappedNode = findTappedNode(worldOffset)
         if (tappedNode != null) {
-            _selection.value = Selection.NodeSelected(tappedNode.id)
+            _selection.value = Selection.NodeSelected(tappedNode)
             return
         }
 
         // 2. Kiểm tra chạm vào cạnh
         val tappedEdge = findTappedEdge(worldOffset)
         if (tappedEdge != null) {
-            _selection.value = Selection.EdgeSelected(tappedEdge.id)
+            _selection.value = Selection.EdgeSelected(tappedEdge)
             return
         }
 
@@ -478,23 +475,47 @@ class MapViewModel @Inject constructor(
     }
 
     // --- Hàm trợ giúp tính toán ---
-
-    private fun findTappedNode(offset: Offset): Node? {
-        return _nodes.value.find {
-            (Offset(it.x, it.y) - offset).getDistanceSquared() <= RADIUS.pow(2)
+    private fun findTappedNode(worldOffset: Offset): Node? {
+        val currentScale = _scale.value
+        val node = _nodes.value.find {
+            // QUAN TRỌNG: Chia bán kính cho scale để khớp với hình vẽ trên màn hình
+            val worldRadius = RADIUS / currentScale
+            (Offset(it.x, it.y) - worldOffset).getDistanceSquared() <= worldRadius.pow(2)
         }
+        if (node != null) findPathToNode(node)
+        return node
     }
 
-    private fun findTappedEdge(offset: Offset): Edge? {
-        val tapThresholdSq = EDGE_TAP_THRESHOLD.pow(2)
+    private fun findTappedEdge(worldOffset: Offset): Edge? {
+        val currentScale = _scale.value
+        // QUAN TRỌNG: Vùng chạm cạnh cũng cần chia cho scale
+        val worldThresholdSq = (EDGE_TAP_THRESHOLD / currentScale).pow(2)
+
         return _edges.value.find { edge ->
             val fromNode = getNodeById(edge.fromNode) ?: return@find false
             val p1 = Offset(fromNode.x, fromNode.y)
             val toNode = getNodeById(edge.toNode) ?: return@find false
             val p2 = Offset(toNode.x, toNode.y)
-            distanceToSegmentSquared(offset, p1, p2) <= tapThresholdSq
+            distanceToSegmentSquared(worldOffset, p1, p2) <= worldThresholdSq
         }
     }
+
+//    private fun findTappedNode(offset: Offset): Node? {
+//        return _nodes.value.find {
+//            (Offset(it.x, it.y) - offset).getDistanceSquared() <= RADIUS.pow(2)
+//        }
+//    }
+//
+//    private fun findTappedEdge(offset: Offset): Edge? {
+//        val tapThresholdSq = EDGE_TAP_THRESHOLD.pow(2)
+//        return _edges.value.find { edge ->
+//            val fromNode = getNodeById(edge.fromNode) ?: return@find false
+//            val p1 = Offset(fromNode.x, fromNode.y)
+//            val toNode = getNodeById(edge.toNode) ?: return@find false
+//            val p2 = Offset(toNode.x, toNode.y)
+//            distanceToSegmentSquared(offset, p1, p2) <= tapThresholdSq
+//        }
+//    }
 
     /**
      * Tính bình phương khoảng cách từ điểm p đến đoạn thẳng (v, w).
@@ -512,4 +533,135 @@ class MapViewModel @Inject constructor(
         return (p - projection).getDistanceSquared()
     }
 
+    /**
+     * Graph
+     */
+    fun findPathToNode(targetNode: Node) {
+        val currentUserPos = _userPosition.value ?: return
+        val allNodes = _nodes.value
+        val allEdges = _edges.value
+
+        // --- BƯỚC 1: TÌM ĐIỂM VÀO (START NODE) ---
+        // Lấy tất cả các node ĐANG tham gia vào mạng lưới (có ít nhất 1 cạnh nối)
+        val connectedNodeIds = allEdges.flatMap { listOf(it.fromNode, it.toNode) }.toSet()
+
+        // Tìm node trong mạng lưới gần người dùng nhất
+        val startNode = allNodes
+            .filter { it.id in connectedNodeIds }
+            .minByOrNull { calculateDistance(currentUserPos, it) }
+        // Nếu không có node nào trong mạng lưới, trả về đường thẳng trực tiếp
+            ?: return
+
+        // --- BƯỚC 2: TÌM ĐIỂM RA (END GATEWAY) ---
+        // Nếu targetNode đã nằm trong mạng lưới rồi thì nó chính là đích
+        // Nếu targetNode bị cô lập (không có cạnh), ta tìm node trong mạng lưới gần nó nhất để làm "cửa ngõ"
+        val endGatewayNode = if (targetNode.id in connectedNodeIds) {
+            targetNode
+        } else {
+            allNodes
+                .filter { it.id in connectedNodeIds && it.id != targetNode.id } // Trừ chính nó ra
+                .minByOrNull { calculateDistance(Offset(targetNode.x, targetNode.y), it) }
+                ?: startNode // Fallback: nếu ko tìm được thì quay về start
+        }
+
+        // --- BƯỚC 3: DIJKSTRA (VÔ HƯỚNG) ---
+        val pathNodes = runDijkstra(startNode.id, endGatewayNode.id, allNodes, allEdges)
+
+        // --- BƯỚC 4: TỔNG HỢP ĐƯỜNG ĐI (OFFSET) ---
+        val pathOffsets = mutableListOf<Offset>()
+
+        // 4a. Từ vị trí thực của User -> Node bắt đầu (Start Node)
+        pathOffsets.add(currentUserPos)
+
+        // 4b. Các node trong đồ thị
+        pathOffsets.addAll(pathNodes.map { Offset(it.x, it.y) })
+
+        // 4c. Từ Node cửa ngõ (Gateway) -> Vị trí Node đích thực sự (nếu khác nhau)
+        // Đây là đoạn "đi bộ" từ mạng lưới đến cái ghế/bàn cụ thể
+        if (endGatewayNode.id != targetNode.id) {
+            pathOffsets.add(Offset(targetNode.x, targetNode.y))
+        } else if (pathOffsets.isEmpty()) {
+            // Trường hợp User đang đứng ngay tại đích hoặc rất gần
+            pathOffsets.add(Offset(targetNode.x, targetNode.y))
+        }
+
+        _pathOffsetAndNode.value = Pair(pathOffsets, pathNodes)
+    }
+
+    fun clearPath() {
+        _pathOffsetAndNode.value = null
+    }
+
+    private fun runDijkstra(
+        startId: Long,
+        endId: Long,
+        nodes: List<Node>,
+        edges: List<Edge>
+    ): List<Node> {
+        if (startId == endId) return listOfNotNull(nodes.find { it.id == startId })
+
+        // Xây dựng đồ thị VÔ HƯỚNG
+        val adj = HashMap<Long, MutableList<Pair<Long, Float>>>()
+        edges.forEach { edge ->
+            val w = if (edge.weight > 0) edge.weight else 1f
+            // Add cả 2 chiều để đảm bảo vô hướng
+            adj.computeIfAbsent(edge.fromNode) { ArrayList() }.add(edge.toNode to w)
+            adj.computeIfAbsent(edge.toNode) { ArrayList() }.add(edge.fromNode to w)
+        }
+
+        val distances = HashMap<Long, Float>().withDefault { Float.MAX_VALUE }
+        val previous = HashMap<Long, Long>()
+        val priorityQueue = PriorityQueue<PathNode>()
+
+        nodes.forEach { distances[it.id] = Float.MAX_VALUE }
+        distances[startId] = 0f
+        priorityQueue.add(PathNode(startId, 0f))
+
+        while (priorityQueue.isNotEmpty()) {
+            val (u, distU) = priorityQueue.poll() ?: break
+
+            // Tối ưu: Nếu khoảng cách lấy ra lớn hơn khoảng cách đã lưu -> bỏ qua
+            if (distU > (distances[u] ?: Float.MAX_VALUE)) continue
+            if (u == endId) break
+
+            adj[u]?.forEach { (v, weight) ->
+                val newDist = distU + weight
+                if (newDist < (distances[v] ?: Float.MAX_VALUE)) {
+                    distances[v] = newDist
+                    previous[v] = u
+                    priorityQueue.add(PathNode(v, newDist))
+                }
+            }
+        }
+
+        // Truy vết ngược (Backtracking)
+        val path = mutableListOf<Node>()
+        var curr: Long? = endId
+
+        // Kiểm tra tính liên thông: Nếu endId chưa bao giờ được update previous (trừ khi start==end), nghĩa là ko có đường
+        if (previous[endId] == null && startId != endId) return emptyList()
+
+        while (curr != null) {
+            val node = nodes.find { it.id == curr }
+            if (node != null) path.add(node)
+            curr = previous[curr]
+        }
+
+        return path.reversed()
+    }
+
+    // Helper: Tính khoảng cách giữa User (Offset) và Node
+    private fun calculateDistance(pos: Offset, node: Node): Float {
+        return hypot(pos.x - node.x, pos.y - node.y)
+    }
+
+    // Helper: Tính khoảng cách giữa 2 Nodes (cho weight nếu cần)
+    private fun calculateNodeDistance(n1: Node, n2: Node): Float {
+        return hypot(n1.x - n2.x, n1.y - n2.y)
+    }
+}
+
+// Data class hỗ trợ cho thuật toán Dijkstra
+data class PathNode(val nodeId: Long, val distance: Float) : Comparable<PathNode> {
+    override fun compareTo(other: PathNode): Int = this.distance.compareTo(other.distance)
 }

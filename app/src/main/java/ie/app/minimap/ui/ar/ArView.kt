@@ -1,9 +1,11 @@
-package ie.app.minimap.ui.components
+package ie.app.minimap.ui.ar
 
 import android.annotation.SuppressLint
 import android.util.Log
 import android.view.MotionEvent
+import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,14 +53,22 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ar.core.Plane
 import com.google.ar.core.Pose
 import com.google.ar.sceneform.ArSceneView
+import ie.app.minimap.data.local.entity.Building
+import ie.app.minimap.data.local.entity.Floor
 import ie.app.minimap.data.local.entity.Node
 
 @SuppressLint("ClickableViewAccessibility")
 @Composable
-fun ArEditor(
+fun ArView(
+    editing: Boolean,
     venueId: Long,
-    buildingId: Long,
-    floorId: Long,
+    building: Building,
+    floor: Floor,
+    nodes: List<Node>,
+    onReadyAnchor: (Boolean) -> Unit = {},
+    selectedNode: Node? = null,
+    pathNode: List<Node>? = null,
+    hostAnchor: (()->Unit) -> Unit,
     updateUserLocation: (Offset) -> Unit = {},
     viewModel: ArViewModel = hiltViewModel(),
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier,
@@ -71,9 +81,20 @@ fun ArEditor(
             planeRenderer.isEnabled = true
         }
     }
+
+    LaunchedEffect(floor, building) {
+        viewModel.updateCloudAnchors(nodes)
+    }
+
+    LaunchedEffect(pathNode) {
+        Log.d("ArView", "pathNode: $pathNode")
+        if (pathNode != null)
+            viewModel.drawPath(arSceneView, pathNode)
+    }
     // Lấy LifecycleOwner
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsState()
+    val hostNode by viewModel.hostNode.collectAsState()
 
     var openDialog by remember { mutableStateOf(false) }
     var pendingHitPose by remember { mutableStateOf<Pose?>(null) }
@@ -104,82 +125,97 @@ fun ArEditor(
             modifier = Modifier.fillMaxSize(),
             update = { view ->
                 // Khối update này sẽ chạy lại khi `uiState` thay đổi
-                when (val state = uiState) {
-                    is ArUiState.Ready -> {
-                        // Sẵn sàng! Bật renderer và gán listener
-                        view.planeRenderer.isVisible = true
-                        view.planeRenderer.isEnabled = true
+                if (uiState.transformationSystem != null && !uiState.loading && uiState.error == null) {
+                    // Sẵn sàng! Bật renderer và gán listener
+                    view.planeRenderer.isVisible = true
+                    view.planeRenderer.isEnabled = true
 
-                        view.scene.setOnTouchListener { hitTestResult, motionEvent ->
-                            // Gửi sự kiện chạm đến ViewModel
-                            if (motionEvent.action == MotionEvent.ACTION_UP) {
-                                val frame = view.arFrame ?: return@setOnTouchListener true
-
-                                // Hit test màn hình tại vị trí chạm
-                                val hits = frame.hitTest(motionEvent)
-
-                                // Tìm plane hợp lệ
-                                val hit = hits.firstOrNull { hitResult ->
-                                    val trackable = hitResult.trackable
-                                    trackable is Plane && trackable.isPoseInPolygon(hitResult.hitPose)
-                                }
-
-                                if (hit != null) {
-                                    // Lưu event và mở dialog
-                                    pendingHitPose = hit.hitPose
-                                    openDialog = true
-                                }
-                            }
-
-                            true // Đã xử lý
+                    view.scene.setOnTouchListener { hitTestResult, motionEvent ->
+                        // Gửi sự kiện chạm đến ViewModel
+                        if (!editing) return@setOnTouchListener false
+                        if (hostNode != null) {
+                            Toast.makeText(
+                                context,
+                                "Anchor is already hosted",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return@setOnTouchListener false
                         }
 
-                        view.scene.addOnUpdateListener {
-                            // Cập nhật TransformationSystem mỗi frame
-                            val frame = view.arFrame
-                            if (frame != null) {
-                                val cameraPose = frame.camera.pose
-                                updateUserLocation(viewModel.worldToCanvas(cameraPose.tx(), cameraPose.tz()))
-                                // Trích xuất tọa độ [x, y, z]
-                                Log.d("MiniMap", "Camera Pose: ${cameraPose.tx()} ${cameraPose.ty()} ${cameraPose.tz()} ${cameraPose.qx()} ${cameraPose.qy()} ${cameraPose.qz()} ${cameraPose.qw()}")
-                            }
-//                            viewModel.onUpdate(view)
+                        if (motionEvent.action == MotionEvent.ACTION_UP) {
+                            val frame = view.arFrame ?: return@setOnTouchListener true
 
+                            // Hit test màn hình tại vị trí chạm
+                            val hits = frame.hitTest(motionEvent)
+
+                            // Tìm plane hợp lệ
+                            val hit = hits.firstOrNull { hitResult ->
+                                val trackable = hitResult.trackable
+                                trackable is Plane && trackable.isPoseInPolygon(hitResult.hitPose)
+                            }
+
+                            if (hit != null) {
+                                // Lưu event và mở dialog
+                                pendingHitPose = hit.hitPose
+                                openDialog = true
+                            }
                         }
+
+                        true // Đã xử lý
                     }
-                    else -> {
-                        // Chưa sẵn sàng (Loading/Error), không làm gì cả
+
+                    view.scene.addOnUpdateListener {
+                        // Cập nhật TransformationSystem mỗi frame
+                        val frame = view.arFrame
+                        if (frame != null) {
+                            val cameraPose = frame.camera.pose
+                            updateUserLocation(
+                                viewModel.updateUserLocationFromWorld(
+                                    cameraPose.tx(),
+                                    cameraPose.tz(),
+                                    nodes
+                                ) ?: Offset.Zero
+                            )
+                            // Trích xuất tọa độ [x, y, z]
+                            Log.d(
+                                "MiniMap",
+                                "Camera Pose: ${cameraPose.tx()} ${cameraPose.ty()} ${cameraPose.tz()} ${cameraPose.qx()} ${cameraPose.qy()} ${cameraPose.qz()} ${cameraPose.qw()}"
+                            )
+                        }
+                        viewModel.onUpdate(view)
+
                     }
+
                 }
             }
         )
 
         // Hiển thị UI overlay dựa trên trạng thái (State)
-        when (val state = uiState) {
-            is ArUiState.Loading -> {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                Text(
-                    text = "Đang tải mô hình 3D...",
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(16.dp)
-                )
+        when {
+            uiState.loading -> {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.35f))
+                ) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
             }
-            is ArUiState.Error -> {
+
+            uiState.error != null -> {
                 Text(
-                    text = "Lỗi: ${state.message}",
+                    text = "Lỗi: ${uiState.error}",
                     color = Color.Red,
                     modifier = Modifier
                         .align(Alignment.Center)
                         .padding(16.dp)
                 )
             }
-            is ArUiState.Ready -> {
-                Button(onClick = {
-                    viewModel.exportCloudAnchorsToFile(context = context)
-                }) {
-                    Text(text = "Export Anchors")
-                }
+
+            uiState.transformationSystem != null && !uiState.loading && uiState.error == null -> {
 
                 if (openDialog) {
                     AddAnchorDialog(
@@ -195,11 +231,12 @@ fun ArEditor(
                                     description,
                                     vendorName,
                                     vendorDescription,
-                                    floorId,
-                                    buildingId,
+                                    floor,
+                                    building,
                                     venueId
                                 )
                             }
+                            hostAnchor(viewModel::exportAnchorToCloud)
                             openDialog = false
                         }
                     )
@@ -283,7 +320,9 @@ fun AddAnchorDialog(
 
                 AnimatedContent(
                     targetState = selectedType,
-                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Min)
                 ) {
                     when (it) {
                         Node.ROOM -> {
@@ -297,6 +336,7 @@ fun AddAnchorDialog(
                                     .padding(vertical = 16.dp)
                             )
                         }
+
                         Node.BOOTH -> {
                             Column {
                                 Text(
@@ -327,7 +367,7 @@ fun AddAnchorDialog(
                                     modifier = Modifier.padding(top = 16.dp)
                                 )
                                 OutlinedTextField(
-                                    value =vendorName,
+                                    value = vendorName,
                                     onValueChange = { vendorName = it },
                                     label = { Text("Vendor's Name") },
                                     singleLine = true,
@@ -349,7 +389,9 @@ fun AddAnchorDialog(
                 }
 
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
@@ -364,9 +406,17 @@ fun AddAnchorDialog(
                                 Node.ROOM -> {
                                     onConfirm(selectedType, name, null, null, null)
                                 }
+
                                 Node.BOOTH -> {
-                                    onConfirm(selectedType, name, description, vendorName, vendorDescription)
+                                    onConfirm(
+                                        selectedType,
+                                        name,
+                                        description,
+                                        vendorName,
+                                        vendorDescription
+                                    )
                                 }
+
                                 else -> {
                                     onConfirm(selectedType, null, null, null, null)
                                 }

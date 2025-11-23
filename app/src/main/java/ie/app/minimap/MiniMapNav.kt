@@ -52,6 +52,7 @@ fun MiniMapNav(
             entry<Map> { key ->
                 MapScreen(
                     venueId = key.venueId,
+                    onBack = { backStack.removeLastOrNull() }
                 )
             }
         }
