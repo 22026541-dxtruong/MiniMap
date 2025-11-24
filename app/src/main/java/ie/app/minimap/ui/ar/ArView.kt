@@ -6,6 +6,7 @@ import android.view.MotionEvent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,11 +66,10 @@ fun ArView(
     building: Building,
     floor: Floor,
     nodes: List<Node>,
-    onReadyAnchor: (Boolean) -> Unit = {},
+    onMessage: (String) -> Unit,
     selectedNode: Node? = null,
     pathNode: List<Node>? = null,
-    hostAnchor: (()->Unit) -> Unit,
-    updateUserLocation: (Offset) -> Unit = {},
+    updateUserLocation: (Offset?) -> Unit = {},
     viewModel: ArViewModel = hiltViewModel(),
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier,
 ) {
@@ -82,7 +82,8 @@ fun ArView(
         }
     }
 
-    LaunchedEffect(floor, building) {
+    LaunchedEffect(nodes) {
+        Log.d("ArViewModel", "${nodes.size}")
         viewModel.updateCloudAnchors(nodes)
     }
 
@@ -99,6 +100,12 @@ fun ArView(
     var openDialog by remember { mutableStateOf(false) }
     var pendingHitPose by remember { mutableStateOf<Pose?>(null) }
 
+    LaunchedEffect(uiState.message) {
+        if (uiState.message != null) {
+            onMessage(uiState.message!!)
+            viewModel.clearMessage()
+        }
+    }
 
     // Chúng ta cần quản lý vòng đời của ArSceneView (resume, pause, destroy)
     // và tạo ra Session ARCore.
@@ -115,6 +122,34 @@ fun ArView(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             viewModel.onDestroy(arSceneView) // Hủy hoàn toàn khi Composable bị hủy
+        }
+    }
+    DisposableEffect(arSceneView) {
+        val updateListener = com.google.ar.sceneform.Scene.OnUpdateListener {
+            // Chỉ chạy logic khi hệ thống AR đã sẵn sàng và không loading
+            if (uiState.transformationSystem != null && !uiState.loading) {
+                val frame = arSceneView.arFrame
+                if (frame != null) {
+                    val cameraPose = frame.camera.pose
+
+                    // Cập nhật vị trí user trên bản đồ 2D
+                    val location = viewModel.updateUserLocationFromWorld(cameraPose)
+
+                    if (location != null) {
+                        updateUserLocation(location)
+                    } else {
+                        // Fallback...
+                    }
+                }
+                // Gọi ViewModel update loop
+                viewModel.onUpdate(arSceneView)
+            }
+        }
+
+        arSceneView.scene.addOnUpdateListener(updateListener)
+
+        onDispose {
+            arSceneView.scene.removeOnUpdateListener(updateListener)
         }
     }
 
@@ -164,27 +199,31 @@ fun ArView(
                         true // Đã xử lý
                     }
 
-                    view.scene.addOnUpdateListener {
-                        // Cập nhật TransformationSystem mỗi frame
-                        val frame = view.arFrame
-                        if (frame != null) {
-                            val cameraPose = frame.camera.pose
-                            updateUserLocation(
-                                viewModel.updateUserLocationFromWorld(
-                                    cameraPose.tx(),
-                                    cameraPose.tz(),
-                                    nodes
-                                ) ?: Offset.Zero
-                            )
-                            // Trích xuất tọa độ [x, y, z]
-                            Log.d(
-                                "MiniMap",
-                                "Camera Pose: ${cameraPose.tx()} ${cameraPose.ty()} ${cameraPose.tz()} ${cameraPose.qx()} ${cameraPose.qy()} ${cameraPose.qz()} ${cameraPose.qw()}"
-                            )
-                        }
-                        viewModel.onUpdate(view)
-
-                    }
+//                    view.scene.addOnUpdateListener {
+//                        // Cập nhật TransformationSystem mỗi frame
+//                        val frame = view.arFrame
+//                        if (frame != null) {
+//                            val cameraPose = frame.camera.pose
+//                            updateUserLocation(
+//                                if (nodes.isNotEmpty()) {
+//                                    viewModel.updateUserLocationFromWorld(
+//                                        cameraPose.tx(),
+//                                        cameraPose.tz(),
+//                                        nodes
+//                                    )
+//                                } else {
+//                                    viewModel.worldToCanvas(cameraPose.tx(), cameraPose.tz())
+//                                }
+//                            )
+//                            // Trích xuất tọa độ [x, y, z]
+//                            Log.d(
+//                                "MiniMap",
+//                                "Camera Pose: ${cameraPose.tx()} ${cameraPose.ty()} ${cameraPose.tz()} ${cameraPose.qx()} ${cameraPose.qy()} ${cameraPose.qz()} ${cameraPose.qw()}"
+//                            )
+//                        }
+//                        viewModel.onUpdate(view)
+//
+//                    }
 
                 }
             }
@@ -196,12 +235,21 @@ fun ArView(
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.35f))
+                        .background(Color.Black.copy(alpha = 0.5f)) // Nền tối bán trong suốt
+                        .clickable(enabled = false) {} // Chặn touch xuống map khi đang loading
                 ) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = Color.White)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = uiState.message ?: "Đang xử lý...", // Hiện message loading
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
                 }
             }
 
@@ -236,7 +284,6 @@ fun ArView(
                                     venueId
                                 )
                             }
-                            hostAnchor(viewModel::exportAnchorToCloud)
                             openDialog = false
                         }
                     )

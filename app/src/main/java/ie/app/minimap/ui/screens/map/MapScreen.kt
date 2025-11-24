@@ -32,7 +32,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -59,10 +58,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -77,7 +77,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -95,12 +94,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -111,6 +108,7 @@ import ie.app.minimap.data.local.entity.Edge
 import ie.app.minimap.data.local.entity.Floor
 import ie.app.minimap.data.local.entity.Node
 import ie.app.minimap.ui.ar.ArView
+import kotlinx.coroutines.launch
 import kotlin.collections.forEach
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,6 +120,7 @@ fun MapScreen(
     modifier: Modifier = Modifier
 ) {
     var editing by remember { mutableStateOf(false) }
+    var expandedSearch by remember { mutableStateOf(false) }
 
     val uiState by viewModel.uiState.collectAsState()
     val userPosition by viewModel.userPosition.collectAsState()
@@ -135,6 +134,7 @@ fun MapScreen(
     val rotation by viewModel.rotation.collectAsState()
     val selection by viewModel.selection.collectAsState() // Theo dõi lựa chọn
     val pathOffsetAndNode by viewModel.pathOffsetAndNode.collectAsState()
+    val searchResult by viewModel.searchResult.collectAsState()
 
     val textPaint = remember {
         Paint().apply {
@@ -144,7 +144,8 @@ fun MapScreen(
         }
     }
     val coroutineScope = rememberCoroutineScope()
-    var hostAnchor by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+//    var hostAnchor by remember { mutableStateOf<(() -> Unit)?>(null) }
     val scaffoldState = rememberBottomSheetScaffoldState()
     val bottomExpanded by remember {
         derivedStateOf { scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded }
@@ -168,7 +169,11 @@ fun MapScreen(
         viewModel.loadMap(venueId)
     }
 
-    Scaffold { innerPadding ->
+    Scaffold(
+        snackbarHost = {
+            SnackbarHost(snackbarHostState)
+        }
+    ) { innerPadding ->
         BottomSheetScaffold(
             scaffoldState = scaffoldState,
             sheetPeekHeight = 80.dp + innerPadding.calculateBottomPadding(),
@@ -237,7 +242,9 @@ fun MapScreen(
                                     drawPath(pathOffsetAndNode!!.first, scale)
                                 }
                                 drawNodes(nodes, textPaint, draggingState, selection, scale)
-                                drawUserPosition(userPosition, scale)
+                                if (userPosition != null) {
+                                    drawUserPosition(userPosition, scale)
+                                }
                             }
                         }
                     }
@@ -334,7 +341,8 @@ fun MapScreen(
                         }
                     }
                 }
-            }
+            },
+
         ) {
             Box(
                 modifier = Modifier
@@ -348,70 +356,64 @@ fun MapScreen(
                     floor = uiState.selectedFloor,
                     nodes = nodes,
                     pathNode = pathOffsetAndNode?.second,
+                    onMessage = { message ->
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(message)
+                        }
+                    },
                     selectedNode = if (selection is Selection.NodeSelected) (selection as Selection.NodeSelected).node else null,
-                    hostAnchor = { action -> hostAnchor = action },
-                    updateUserLocation = { viewModel.updateUserLocation(it.x, it.y) },
+                    updateUserLocation = { viewModel.updateUserLocation(it) },
                     modifier = Modifier.fillMaxSize()
                 )
 
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                FloatingActionButton(
+                    onClick = {
+                        editing = !editing
+                        expandedSearch = false
+                    },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .offset(y = -sheetOffsetDp - screenHeight - 28.dp)
                         .padding(16.dp)
                 ) {
-                    AnimatedVisibility(
-                        hostAnchor != null
+                    AnimatedContent(
+                        editing,
+                        modifier = Modifier.padding(8.dp)
                     ) {
-                        FloatingActionButton(
-                            onClick = {
-                                hostAnchor?.invoke()
-                                hostAnchor = null
-                            },
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(8.dp)
-                            ) {
-                                Icon(painterResource(R.drawable.outline_cloud_upload_24), "Anchor")
-                                Text("Save")
-                            }
-                        }
-                    }
-                    FloatingActionButton(
-                        onClick = { editing = !editing },
-                    ) {
-                        AnimatedContent(
-                            editing,
-                            modifier = Modifier.padding(8.dp)
-                        ) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                when (it) {
-                                    true -> {
-                                        Icon(
-                                            painterResource(R.drawable.baseline_visibility_24),
-                                            "View"
-                                        )
-                                        Text("View")
-                                    }
+                            when (it) {
+                                true -> {
+                                    Icon(
+                                        painterResource(R.drawable.baseline_visibility_24),
+                                        "View"
+                                    )
+                                    Text("View")
+                                }
 
-                                    else -> {
-                                        Icon(Icons.Default.Edit, "Edit")
-                                        Text("Edit")
-                                    }
+                                else -> {
+                                    Icon(Icons.Default.Edit, "Edit")
+                                    Text("Edit")
                                 }
                             }
                         }
                     }
                 }
                 MapTopBar(
+                    expandedSearch = expandedSearch,
                     onBack = onBack,
+                    onSearch = {
+                        coroutineScope.launch {
+                            viewModel.getNodesByLabel(it)
+                        }
+                    },
+                    onClickNode = {
+                        viewModel.findPathToNode(it)
+                    },
+                    onExpandedChange = { expandedSearch = it },
+                    searchResults = searchResult,
                     modifier = Modifier.align(Alignment.TopCenter)
                 )
             }
@@ -582,24 +584,28 @@ fun BuildingsDropDownMenu(
 @Preview
 @Composable
 fun MapTopBar(
+    expandedSearch: Boolean = false,
+    onExpandedChange: (Boolean) -> Unit = { _ -> },
     onBack: () -> Unit = {},
-
+    onClickNode: (Node) -> Unit = {},
     onSearch: (String) -> Unit = { _ -> },
-    searchResults: List<String> =  emptyList(),
+    searchResults: List<Node> =  emptyList(),
     modifier: Modifier = Modifier
 ) {
     var query by remember { mutableStateOf("") }
+
     DockedSearchBar(
         inputField = {
             SearchBarDefaults.InputField(
                 query = query,
                 onQueryChange = {
                     query = it
+                    onExpandedChange(it.isNotBlank())
                     onSearch(it)
                 }, // Cập nhật query
                 onSearch = { onSearch(it) }, // Thực hiện tìm kiếm
-                expanded = query.isNotBlank(),
-                onExpandedChange = { },
+                expanded = expandedSearch,
+                onExpandedChange = onExpandedChange,
                 placeholder = { Text("Search") },
                 leadingIcon = {
                     IconButton(
@@ -621,8 +627,8 @@ fun MapTopBar(
                 colors = SearchBarDefaults.colors().inputFieldColors
             )
         },
-        expanded = query.isNotBlank(),
-        onExpandedChange = { },
+        expanded = expandedSearch,
+        onExpandedChange = onExpandedChange,
         modifier = modifier.padding(16.dp)
     ) {
         if (searchResults.isEmpty()) {
@@ -643,12 +649,13 @@ fun MapTopBar(
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
             items(searchResults) { result ->
                 ListItem(
-                    headlineContent = { Text(result) },
+                    headlineContent = { Text(result.label) },
                     leadingContent = { Icon(Icons.Default.Search, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth()
                         .clickable {
-                            query = result // Đặt query thành kết quả được chọn
-                            onSearch(result) // Thực hiện tìm kiếm
+                            onExpandedChange(false)
+                            query = result.label // Đặt query thành kết quả được chọn
+                            onClickNode(result) // Thực hiện tìm kiếm
                             // Không cần cập nhật `expanded` vì nó tự động false khi `query` không rỗng
                         }
                 )

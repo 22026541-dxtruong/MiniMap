@@ -11,6 +11,7 @@ import ie.app.minimap.data.local.entity.Building
 import ie.app.minimap.data.local.entity.Edge
 import ie.app.minimap.data.local.entity.Floor
 import ie.app.minimap.data.local.entity.Node
+import ie.app.minimap.data.local.repository.InfoRepository
 import ie.app.minimap.data.local.repository.MapRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -62,7 +63,8 @@ data class MapUiState(
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
-    private val mapRepository: MapRepository
+    private val mapRepository: MapRepository,
+    private val infoRepository: InfoRepository
 ) : ViewModel() {
     companion object {
         const val SNAP_THRESHOLD = 80f // Dính khi cách tâm nút 80px
@@ -113,6 +115,15 @@ class MapViewModel @Inject constructor(
     // Theo dõi kích thước màn hình để căn giữa
     private var _viewSize = IntSize.Zero
     private var _isInitialized = false
+
+    private val _searchResult = MutableStateFlow<List<Node>>(emptyList())
+    val searchResult: StateFlow<List<Node>> = _searchResult.asStateFlow()
+
+    suspend fun getNodesByLabel(label: String) {
+        infoRepository.getNodesByLabel(label, _uiState.value.selectedFloor.id).collect {
+            _searchResult.value = it
+        }
+    }
 
     // --- Quản lý Khởi tạo ---
 
@@ -210,8 +221,8 @@ class MapViewModel @Inject constructor(
         _uiState.update { it.copy(selectedBuilding = building) }
     }
 
-    fun updateUserLocation(x: Float, y: Float) {
-        _userPosition.value = Offset(x, y)
+    fun updateUserLocation(offset: Offset?) {
+        _userPosition.value = offset
     }
 
     // --- Quản lý Nút (Node) ---
@@ -415,7 +426,8 @@ class MapViewModel @Inject constructor(
                         Edge(
                             fromNode = currentDrag.startNode.id,
                             toNode = targetNode.id,
-                            floorId = _uiState.value.selectedFloor.id
+                            floorId = _uiState.value.selectedFloor.id,
+                            weight = (Offset(currentDrag.startNode.x, currentDrag.startNode.y) - Offset(targetNode.x, targetNode.y)).getDistance()
                         )
                     )
                 }
@@ -482,7 +494,6 @@ class MapViewModel @Inject constructor(
             val worldRadius = RADIUS / currentScale
             (Offset(it.x, it.y) - worldOffset).getDistanceSquared() <= worldRadius.pow(2)
         }
-        if (node != null) findPathToNode(node)
         return node
     }
 

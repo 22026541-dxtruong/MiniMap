@@ -21,4 +21,7 @@ interface NodeDao {
 
     @Query("SELECT * FROM nodes WHERE floor_id = :floorId ORDER BY id ASC")
     fun getNodesByFloorId(floorId :Long): Flow<List<Node>>
+
+    @Query("SELECT * FROM nodes WHERE floor_id = :floorId AND type != 'Intersection' AND type != 'Connector' AND label LIKE '%' || :label || '%'")
+    fun getNodesByLabel(label: String, floorId :Long): Flow<List<Node>>
 }

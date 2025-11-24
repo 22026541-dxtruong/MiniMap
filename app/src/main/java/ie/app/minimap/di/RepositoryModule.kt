@@ -64,8 +64,8 @@ object RepositoryModule {
     @Singleton
     fun provideInfoRepository(
         vendorDao: VendorDao,
-        boothDao: BoothDao
-    ): InfoRepository = InfoRepository(vendorDao, boothDao)
-
+        boothDao: BoothDao,
+        nodeDao: NodeDao
+    ): InfoRepository = InfoRepository(vendorDao, boothDao, nodeDao)
 
 }
