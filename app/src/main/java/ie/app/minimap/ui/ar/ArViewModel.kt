@@ -40,7 +40,8 @@ data class ArUiState(
     val transformationSystem: TransformationSystem? = null,
     val loading: Boolean = false,
     val error: String? = null,
-    val message: String? = null // Biến này sẽ dùng để hiện Snackbar
+    val message: String? = null,
+    val isLocalized: Boolean = false // <--- TRẠNG THÁI MỚI
 )
 
 @HiltViewModel
@@ -55,9 +56,6 @@ class ArViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ArUiState(loading = true))
     val uiState: StateFlow<ArUiState> = _uiState.asStateFlow()
 
-    private val _hostNode = MutableStateFlow<Pair<Anchor, Node>?>(null)
-    val hostNode: StateFlow<Pair<Anchor, Node>?> = _hostNode.asStateFlow()
-
     private var arSession: Session? = null
     private var modelRenderable: ModelRenderable? = null
     private var pathRenderable: ModelRenderable? = null
@@ -68,7 +66,7 @@ class ArViewModel @Inject constructor(
     private val resolvedNodeIds = mutableSetOf<Long>()
     private val resolvingNodeIds = mutableSetOf<Long>()
 
-    private var tempCloudIds: List<Node> = emptyList()
+    private var allNodes: List<Node> = emptyList()
     private val pathLines = mutableListOf<com.google.ar.sceneform.Node>()
 
     private var currentBatchIndex = 0
@@ -114,14 +112,61 @@ class ArViewModel @Inject constructor(
         }
     }
 
-    fun updateCloudAnchors(nodes: List<Node>) {
-        Log.d(TAG, "Nhận danh sách Node mới từ UI. Số lượng: ${nodes.size}")
-        tempCloudIds = nodes
-        currentBatchIndex = 0
-        lastBatchTime = 0L
+    fun updateCloudAnchors(newNodes: List<Node>) {
+        Log.d(TAG, "Sync dữ liệu: ${newNodes.size} nodes")
 
-        if (nodes.isEmpty()) {
-            showMessage("Không có dữ liệu điểm mốc trong khu vực này.")
+        // 1. Cập nhật danh sách nguồn
+        allNodes = newNodes
+
+        // 2. TÌM VÀ DIỆT (Dọn dẹp các Anchor không còn tồn tại trong DB)
+
+        // Lấy danh sách ID hợp lệ từ DB
+        val validIds = newNodes.map { it.id }.toSet()
+
+        // Lấy danh sách ID đang lưu trong bộ nhớ Cache (nodesAndAnchor)
+        // (Phải toSet() để tạo bản sao, tránh lỗi ConcurrentModification khi xóa loop)
+        val currentCachedIds = nodesAndAnchor.keys.toSet()
+
+        // Tìm những ID "mồ côi" (Có trong Cache nhưng ko có trong DB)
+        val deletedIds = currentCachedIds.filter { it !in validIds }
+
+        if (deletedIds.isNotEmpty()) {
+            Log.i(TAG, "🧹 Phát hiện ${deletedIds.size} node đã bị xóa. Đang dọn dẹp AR...")
+
+            deletedIds.forEach { id ->
+                // A. Detach khỏi ARCore để ngừng tracking/render
+                nodesAndAnchor[id]?.detach()
+
+                // B. Xóa khỏi bộ nhớ đệm
+                nodesAndAnchor.remove(id)
+                resolvedNodeIds.remove(id)
+                resolvingNodeIds.remove(id)
+            }
+        }
+
+        // 3. KIỂM TRA REFERENCE ANCHOR (MỐC)
+        // Nếu cái Node đang làm Mốc bị xóa mất -> Phải reset để tìm Mốc mới
+        if (referenceAnchorPose != null) {
+            val (refCloudId, _) = referenceAnchorPose!!
+            // Kiểm tra xem cloudId của mốc có còn nằm trong danh sách node mới không
+            val isRefStillValid = newNodes.any { it.cloudAnchorId == refCloudId }
+
+            if (!isRefStillValid) {
+                Log.w(TAG, "⚠️ Node Mốc đã bị xóa khỏi DB! Reset hệ thống để tìm Mốc mới.")
+                referenceAnchorPose = null
+                updateLocalizationState()
+
+                // Reset lại batch để quét lại từ đầu
+                currentBatchIndex = 0
+                lastBatchTime = 0L
+            }
+        }
+
+        // 4. Reset batch index nếu cần (Logic cũ)
+        if (newNodes.isEmpty()) {
+            currentBatchIndex = 0
+            lastBatchTime = 0L
+            showMessage("Không có dữ liệu điểm mốc.")
         }
     }
 
@@ -147,10 +192,16 @@ class ArViewModel @Inject constructor(
         }
     }
 
+    private fun updateLocalizationState() {
+        _uiState.update {
+            it.copy(isLocalized = referenceAnchorPose != null)
+        }
+    }
+
     fun onUpdate(arSceneView: ArSceneView) {
         val currentState = _uiState.value
         if (currentState.loading) return
-        if (tempCloudIds.isEmpty()) return
+        if (allNodes.isEmpty()) return
 
         val arFrame = arSceneView.arFrame ?: return
         val camera = arFrame.camera
@@ -164,11 +215,12 @@ class ArViewModel @Inject constructor(
             for ((nodeId, anchor) in nodesAndAnchor) {
                 // Chỉ lấy cái nào thực sự đang được Camera nhìn thấy (TRACKING)
                 if (anchor.trackingState == TrackingState.TRACKING) {
-                    val node = tempCloudIds.find { it.id == nodeId }
+                    val node = allNodes.find { it.id == nodeId }
                     if (node != null) {
                         referenceAnchorPose = node.cloudAnchorId to anchor.pose
                         Log.i(TAG, "🎯 ĐÃ KHÓA MỐC (TRACKING): ${node.label}")
                         showMessage("Đã định vị theo: ${node.label}")
+                        updateLocalizationState()
 
                         // Break ngay để lấy cái đầu tiên track được
                         break
@@ -180,7 +232,7 @@ class ArViewModel @Inject constructor(
         // TRƯỜNG HỢP 1: CHƯA ĐỊNH VỊ (Mò đường)
         if (referenceAnchorPose == null) {
             val currentTime = System.currentTimeMillis()
-            if (tempCloudIds.size > BATCH_SIZE) {
+            if (allNodes.size > BATCH_SIZE) {
                 if (currentTime - lastBatchTime > BATCH_DURATION) {
                     rotateToNextBatch(arSceneView)
                     lastBatchTime = currentTime
@@ -194,9 +246,9 @@ class ArViewModel @Inject constructor(
         }
         // TRƯỜNG HỢP 2: ĐÃ ĐỊNH VỊ (Quét gần)
         else {
-            tempCloudIds.forEach { node ->
+            allNodes.forEach { node ->
                 if (node.id !in resolvedNodeIds && node.id !in resolvingNodeIds) {
-                    val predictedWorldPos = calculatePredictedWorldPosition(node, tempCloudIds)
+                    val predictedWorldPos = calculatePredictedWorldPosition(node, allNodes)
                     if (predictedWorldPos != null) {
                         val dist = distance(
                             cameraPose.tx(), 0f, cameraPose.tz(),
@@ -212,7 +264,7 @@ class ArViewModel @Inject constructor(
     }
 
     private fun rotateToNextBatch(arSceneView: ArSceneView) {
-        val totalNodes = tempCloudIds.size
+        val totalNodes = allNodes.size
         if (totalNodes == 0) return
 
         resolvingNodeIds.clear()
@@ -227,8 +279,8 @@ class ArViewModel @Inject constructor(
             if (currentBatchIndex >= totalNodes) currentBatchIndex = 0
         }
 
-        val rotatingNodes = tempCloudIds.subList(startIndex, endIndex)
-        val landmarkNodes = tempCloudIds.filter {
+        val rotatingNodes = allNodes.subList(startIndex, endIndex)
+        val landmarkNodes = allNodes.filter {
             it.type == Node.CONNECTOR || it.type == Node.INTERSECTION || it.label.contains("Entrance", true)
         }.take(5)
 
@@ -308,7 +360,7 @@ class ArViewModel @Inject constructor(
         if (referenceAnchorPose == null) return null
         val (refCloudId, refAnchorPose) = referenceAnchorPose!!
 
-        val refNode = tempCloudIds.firstOrNull { it.cloudAnchorId == refCloudId } ?: return null
+        val refNode = allNodes.firstOrNull { it.cloudAnchorId == refCloudId } ?: return null
 
         // --- BƯỚC QUAN TRỌNG: CHUYỂN ĐỔI HỆ TỌA ĐỘ ---
 
@@ -414,6 +466,7 @@ class ArViewModel @Inject constructor(
 
                         if (referenceAnchorPose == null) {
                             referenceAnchorPose = cloudId to localAnchor.pose
+                            updateLocalizationState()
                         }
 
                         // TẮT LOADING + THÔNG BÁO THÀNH CÔNG

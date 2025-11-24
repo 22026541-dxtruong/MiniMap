@@ -145,7 +145,6 @@ fun MapScreen(
     }
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-//    var hostAnchor by remember { mutableStateOf<(() -> Unit)?>(null) }
     val scaffoldState = rememberBottomSheetScaffoldState()
     val bottomExpanded by remember {
         derivedStateOf { scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded }
@@ -361,7 +360,6 @@ fun MapScreen(
                             snackbarHostState.showSnackbar(message)
                         }
                     },
-                    selectedNode = if (selection is Selection.NodeSelected) (selection as Selection.NodeSelected).node else null,
                     updateUserLocation = { viewModel.updateUserLocation(it) },
                     modifier = Modifier.fillMaxSize()
                 )

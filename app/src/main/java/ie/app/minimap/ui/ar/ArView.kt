@@ -67,7 +67,6 @@ fun ArView(
     floor: Floor,
     nodes: List<Node>,
     onMessage: (String) -> Unit,
-    selectedNode: Node? = null,
     pathNode: List<Node>? = null,
     updateUserLocation: (Offset?) -> Unit = {},
     viewModel: ArViewModel = hiltViewModel(),
@@ -95,7 +94,6 @@ fun ArView(
     // Lấy LifecycleOwner
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsState()
-    val hostNode by viewModel.hostNode.collectAsState()
 
     var openDialog by remember { mutableStateOf(false) }
     var pendingHitPose by remember { mutableStateOf<Pose?>(null) }
@@ -168,13 +166,15 @@ fun ArView(
                     view.scene.setOnTouchListener { hitTestResult, motionEvent ->
                         // Gửi sự kiện chạm đến ViewModel
                         if (!editing) return@setOnTouchListener false
-                        if (hostNode != null) {
-                            Toast.makeText(
-                                context,
-                                "Anchor is already hosted",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            return@setOnTouchListener false
+                        val isMapEmpty = nodes.isEmpty()
+                        val isReady = uiState.isLocalized
+
+                        if (!isReady && !isMapEmpty) {
+                            // Nếu chưa định vị mà map đã có dữ liệu -> Chặn và báo lỗi
+                            if (motionEvent.action == MotionEvent.ACTION_UP) {
+                                Toast.makeText(context, "⚠️ Vui lòng quét xung quanh để định vị trước khi chỉnh sửa!", Toast.LENGTH_SHORT).show()
+                            }
+                            return@setOnTouchListener true // Chặn event
                         }
 
                         if (motionEvent.action == MotionEvent.ACTION_UP) {
