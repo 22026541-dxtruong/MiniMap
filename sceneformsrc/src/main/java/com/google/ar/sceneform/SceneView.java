@@ -36,10 +36,6 @@ public class SceneView extends SurfaceView implements Choreographer.FrameCallbac
 
     @Nullable private Color backgroundColor;
 
-
-
-
-
     // Used to track high-level performance metrics for Sceneform
     private final MovingAverageMillisecondsTracker frameTotalTracker =
             new MovingAverageMillisecondsTracker();
@@ -363,30 +359,7 @@ public class SceneView extends SurfaceView implements Choreographer.FrameCallbac
         }
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     private void updateAnimation(long frameTimeNanos) {return ;}
-
-
-
-
-
 
     private void doRender() {
         Renderer renderer = this.renderer;
@@ -405,20 +378,6 @@ public class SceneView extends SurfaceView implements Choreographer.FrameCallbac
         }
     }
 
-
     private void initializeAnimation() {return ;}
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 }

@@ -9,7 +9,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import com.google.ar.core.ArCoreApk
@@ -51,12 +50,7 @@ class MainActivity : ComponentActivity() {
 //                }
 //            }
             MiniMapTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    MiniMapNav(
-                        innerPadding = innerPadding,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                MiniMapNav(modifier = Modifier.fillMaxSize())
             }
         }
     }

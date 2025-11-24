@@ -1,6 +1,7 @@
 package ie.app.minimap.data.local.repository
 
 import ie.app.minimap.data.local.dao.BoothDao
+import ie.app.minimap.data.local.dao.NodeDao
 import ie.app.minimap.data.local.dao.VendorDao
 import ie.app.minimap.data.local.entity.Booth
 import ie.app.minimap.data.local.entity.Vendor
@@ -8,8 +9,12 @@ import javax.inject.Inject
 
 class InfoRepository @Inject constructor(
     private val vendorDao: VendorDao,
-    private val boothDao: BoothDao
+    private val boothDao: BoothDao,
+    private val nodeDao: NodeDao
 ) {
+
+    fun getNodesByLabel(label: String, floorId :Long) = nodeDao.getNodesByLabel(label, floorId)
+
     suspend fun upsertVendor(vendor: Vendor): Long {
         return vendorDao.upsert(vendor)
     }
