@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+import "venue.proto";
+import "building.proto";
+import "floor.proto";
+import "floor_connection.proto";
+import "node.proto";
+import "edge.proto";
+import "vendor.proto";
+import "booth.proto";
+import "event.proto";
+
+option java_package = "ie.app.minimap.data.proto";
+option java_multiple_files = true;
+
+message SharedDataProto {
+  VenueProto venue = 1;
+  repeated VendorProto vendor = 2;
+  repeated BuildingProto building = 3;
+  repeated FloorProto floor = 4;
+  repeated NodeProto node = 5;
+  repeated FloorConnectionProto floor_connection = 6;
+  repeated EdgeProto edge = 7;
+  repeated BoothProto booth = 8;
+  repeated EventProto event = 9;
+}

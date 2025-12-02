@@ -13,7 +13,7 @@
         android:required="true" />
     <uses-feature
         android:name="android.hardware.camera"
-        android:required="false" />
+        android:required="true" />
 
     <application
         android:name=".MiniMapApp"

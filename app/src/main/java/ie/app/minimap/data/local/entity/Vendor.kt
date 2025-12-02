@@ -3,6 +3,7 @@ package ie.app.minimap.data.local.entity
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import ie.app.minimap.data.proto.VendorProto
 
 @Entity(
     tableName = "vendors"
@@ -20,3 +21,27 @@ data class Vendor(
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
 )
+
+fun Vendor.toProto(): VendorProto {
+    return VendorProto.newBuilder()
+        .setId(id)
+        .setName(name)
+        .setDescription(description)
+        .setCategory(category)
+        .setContactInfo(contactInfo)
+        .setLogoUrl(logoUrl)
+        .setCreatedAt(createdAt)
+        .build()
+}
+
+fun Vendor.fromProto(proto: VendorProto): Vendor {
+    return Vendor(
+        id = proto.id,
+        name = proto.name,
+        description = proto.description,
+        category = proto.category,
+        contactInfo = proto.contactInfo,
+        logoUrl = proto.logoUrl,
+        createdAt = proto.createdAt
+    )
+}

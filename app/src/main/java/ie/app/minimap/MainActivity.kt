@@ -31,7 +31,6 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(this, "Camera permission denied", Toast.LENGTH_SHORT).show()
                 }
             }
-            var installRequested = false
 
             LaunchedEffect(Unit) {
                 val hasCameraPermission = checkSelfPermission(Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -39,16 +38,16 @@ class MainActivity : ComponentActivity() {
                     cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                 }
             }
-//            LaunchedEffect(Unit) {
-//                when (ArCoreApk.getInstance().requestInstall(this@MainActivity, !installRequested)) {
-//                    ArCoreApk.InstallStatus.INSTALL_REQUESTED -> {
-//                        installRequested = true
-//                    }
-//                    ArCoreApk.InstallStatus.INSTALLED -> {
-//                        // Left empty; nothing needs to be done.
-//                    }
-//                }
-//            }
+            LaunchedEffect(Unit) {
+                when (ArCoreApk.getInstance().requestInstall(this@MainActivity, false)) {
+                    ArCoreApk.InstallStatus.INSTALL_REQUESTED -> {
+
+                    }
+                    ArCoreApk.InstallStatus.INSTALLED -> {
+
+                    }
+                }
+            }
             MiniMapTheme {
                 MiniMapNav(modifier = Modifier.fillMaxSize())
             }

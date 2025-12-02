@@ -65,7 +65,8 @@ object RepositoryModule {
     fun provideInfoRepository(
         vendorDao: VendorDao,
         boothDao: BoothDao,
-        nodeDao: NodeDao
-    ): InfoRepository = InfoRepository(vendorDao, boothDao, nodeDao)
+        nodeDao: NodeDao,
+        eventDao: EventDao
+    ): InfoRepository = InfoRepository(vendorDao, boothDao, nodeDao, eventDao)
 
 }

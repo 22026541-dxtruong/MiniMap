@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+import ie.app.minimap.data.proto.EdgeProto
 
 @Entity(
     tableName = "edges",
@@ -45,3 +46,27 @@ data class Edge(
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
 )
+
+fun Edge.toProto(): EdgeProto {
+    return EdgeProto.newBuilder()
+        .setId(id)
+        .setFloorId(floorId)
+        .setFromNode(fromNode)
+        .setToNode(toNode)
+        .setWeight(weight)
+        .setType(type)
+        .setCreatedAt(createdAt)
+        .build()
+}
+
+fun Edge.fromProto(proto: EdgeProto): Edge {
+    return Edge(
+        id = proto.id,
+        floorId = proto.floorId,
+        fromNode = proto.fromNode,
+        toNode = proto.toNode,
+        weight = proto.weight,
+        type = proto.type,
+        createdAt = proto.createdAt
+    )
+}

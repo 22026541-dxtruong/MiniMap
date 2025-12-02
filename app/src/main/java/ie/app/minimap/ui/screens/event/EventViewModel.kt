@@ -3,7 +3,7 @@ package ie.app.minimap.ui.screens.event
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import ie.app.minimap.data.local.dto.EventBuildingFloorDto
+import ie.app.minimap.data.local.dto.EventWithBuildingAndFloor
 import ie.app.minimap.data.local.repository.EventRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class EventUiState(
-    val events: List<EventBuildingFloorDto> = emptyList(),
+    val events: List<EventWithBuildingAndFloor> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
 )

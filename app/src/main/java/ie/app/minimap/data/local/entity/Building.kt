@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+import ie.app.minimap.data.proto.BuildingProto
 
 @Entity(
     tableName = "buildings",
@@ -27,3 +28,23 @@ data class Building(
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
 )
+
+fun Building.toProto(): BuildingProto {
+    return BuildingProto.newBuilder()
+        .setId(id)
+        .setVenueId(venueId)
+        .setName(name)
+        .setDescription(description)
+        .setCreatedAt(createdAt)
+        .build()
+}
+
+fun Building.fromProto(proto: BuildingProto): Building {
+    return Building(
+        id = proto.id,
+        venueId = proto.venueId,
+        name = proto.name,
+        description = proto.description,
+        createdAt = proto.createdAt
+    )
+}
