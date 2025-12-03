@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+import ie.app.minimap.data.proto.BoothProto
 
 @Entity(
     tableName = "booths",
@@ -65,4 +66,34 @@ data class Booth(
     val imgUrl: String = "",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    constructor(proto: BoothProto) : this(
+        id = proto.id,
+        vendorId = proto.vendorId,
+        venueId = proto.venueId,
+        buildingId = proto.buildingId,
+        floorId = proto.floorId,
+        nodeId = proto.nodeId,
+        name = proto.name,
+        description = proto.description,
+        category = proto.category,
+        imgUrl = proto.imgUrl,
+        createdAt = proto.createdAt
+    )
+}
+
+fun Booth.toProto(): BoothProto {
+    return BoothProto.newBuilder()
+        .setId(id)
+        .setVendorId(vendorId)
+        .setVenueId(venueId)
+        .setBuildingId(buildingId)
+        .setFloorId(floorId)
+        .setNodeId(nodeId)
+        .setName(name)
+        .setDescription(description)
+        .setCategory(category)
+        .setImgUrl(imgUrl)
+        .setCreatedAt(createdAt)
+        .build()
+}

@@ -1,8 +1,12 @@
 package ie.app.minimap.ui.screens.home
 
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,6 +48,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,9 +65,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     onClickVenue: (Long) -> Unit,
+    onQrScanClicked: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var isOpenDialog by remember { mutableStateOf(false) }
     var editingVenue by remember { mutableStateOf<Venue?>(null) }
     val uiState by viewModel.uiState.collectAsState()
@@ -90,7 +98,7 @@ fun HomeScreen(
         topBar = {
             HomeTopBar(
                 onSearchClicked = {},
-                onQrScanClicked = {}
+                onQrScanClicked = onQrScanClicked
             )
         },
         floatingActionButton = {
@@ -125,18 +133,25 @@ fun HomeScreen(
                             .padding(top = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        items(uiState.venues, key = { it.id }) { venue ->
+                        items(uiState.venues.toList(), key = { it.first }) { venue ->
                             VenueCard(
-                                name = venue.name,
-                                address = venue.address,
-                                description = venue.description,
-                                onClick = { onClickVenue(venue.id) },
+                                bitmap = viewModel.generateQrCode(venue.first),
+                                name = venue.second.name,
+                                address = venue.second.address,
+                                description = venue.second.description,
+                                onClick = { onClickVenue(venue.second.id) },
                                 onEdit = {
-                                    editingVenue = venue
+                                    editingVenue = venue.second
                                     isOpenDialog = true
                                 },
+                                onShareImage = {
+                                    viewModel.shareImage(
+                                        context = context,
+                                        bitmap = viewModel.generateQrCode(venue.first)
+                                    )
+                                },
                                 onDelete = {
-                                    viewModel.deleteVenue(venue)
+                                    viewModel.deleteVenue(venue.second)
                                 }
                             )
                         }
@@ -227,6 +242,7 @@ fun HomeTopBar(
 @Preview
 @Composable
 fun VenueCard(
+    bitmap: Bitmap? = null,
     name: String = "Annual Gala Dinneraweferfregregregwegr",
     address: String = "Some address",
     description: String = "A description of the venue",
@@ -234,9 +250,56 @@ fun VenueCard(
     onClick: () -> Unit = {},
     onDelete: () -> Unit = {},
     onEdit: () -> Unit = {},
+    onShareImage: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var openDialog by remember { mutableStateOf(false) }
+
+    if (bitmap != null && openDialog) {
+        Dialog(onDismissRequest = { openDialog = false }) {
+            Surface(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .padding(24.dp),
+                shape = MaterialTheme.shapes.large,
+                tonalElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = "Qr Code",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        TextButton(onClick = { openDialog = false }) {
+                            Text("Cancel")
+                        }
+                        TextButton(onClick = {
+                            onShareImage()
+                            openDialog = false
+                        }) {
+                            Text("Share")
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     ElevatedCard(
         modifier = modifier
@@ -261,15 +324,26 @@ fun VenueCard(
                         .size(48.dp)
                         .clip(MaterialTheme.shapes.medium)
                         .background(MaterialTheme.colorScheme.primary)
+                        .clickable(onClick = { openDialog = if (bitmap != null) true else false })
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.outline_calendar_month_24),
-                        contentDescription = "Date",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .align(Alignment.Center)
-                    )
+                    if (bitmap == null) {
+                        Icon(
+                            painter = painterResource(R.drawable.outline_calendar_month_24),
+                            contentDescription = "Date",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .align(Alignment.Center)
+                        )
+                    } else {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Qr Code",
+                            modifier = Modifier
+                                .size(24.dp)
+                                .align(Alignment.Center)
+                        )
+                    }
                 }
 
                 Column(

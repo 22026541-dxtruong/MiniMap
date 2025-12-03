@@ -424,6 +424,7 @@ class MapViewModel @Inject constructor(
                 viewModelScope.launch {
                     mapRepository.upsertEdge(
                         Edge(
+                            venueId = _uiState.value.selectedBuilding.venueId,
                             fromNode = currentDrag.startNode.id,
                             toNode = targetNode.id,
                             floorId = _uiState.value.selectedFloor.id,

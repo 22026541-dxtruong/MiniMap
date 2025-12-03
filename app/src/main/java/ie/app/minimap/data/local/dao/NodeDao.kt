@@ -13,6 +13,9 @@ interface NodeDao {
     @Upsert
     suspend fun upsert(node: Node): Long
 
+    @Upsert
+    suspend fun upsert(nodes: List<Node>)
+
     @Delete
     suspend fun delete(node: Node)
 
@@ -24,4 +27,8 @@ interface NodeDao {
 
     @Query("SELECT * FROM nodes WHERE floor_id = :floorId AND type != 'Intersection' AND type != 'Connector' AND label LIKE '%' || :label || '%'")
     fun getNodesByLabel(label: String, floorId :Long): Flow<List<Node>>
+
+    @Query("SELECT * FROM nodes WHERE venue_id = :venueId ORDER BY id ASC")
+    fun getNodesByVenueId(venueId: Long): Flow<List<Node>>
+
 }

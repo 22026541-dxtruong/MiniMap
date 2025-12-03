@@ -38,7 +38,7 @@ class VenueRepository @Inject constructor(
         val venueId = database.withTransaction {
             val id = venueDao.upsert(venue)
             val buildingId = buildingDao.upsert(Building(venueId = id))
-            floorDao.upsert(Floor(buildingId = buildingId))
+            floorDao.upsert(Floor(venueId = id, buildingId = buildingId))
             return@withTransaction id
         }
         return venue.copy(id = venueId)

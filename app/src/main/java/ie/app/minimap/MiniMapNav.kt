@@ -11,16 +11,20 @@ import androidx.navigation3.ui.NavDisplay
 import ie.app.minimap.ui.screens.home.HomeScreen
 import ie.app.minimap.ui.screens.event.EventScreen
 import ie.app.minimap.ui.screens.map.MapScreen
+import ie.app.minimap.ui.screens.qrscanner.QrScannerScreen
 import kotlinx.serialization.Serializable
 
 @Serializable
 data object Home : NavKey
 
 @Serializable
-data class Map(val venueId: Long) : NavKey
+data object QrScanner : NavKey
 
 @Serializable
 data class VenueDetails(val venueId: Long) : NavKey
+
+@Serializable
+data class Map(val venueId: Long) : NavKey
 
 @Composable
 fun MiniMapNav(
@@ -40,6 +44,16 @@ fun MiniMapNav(
             entry<Home> {
                 HomeScreen(
                     onClickVenue = { backStack.add(VenueDetails(it)) },
+                    onQrScanClicked = { backStack.add(QrScanner) }
+                )
+            }
+            entry<QrScanner> {
+                QrScannerScreen(
+                    onScannedSuccess = {
+                        backStack.removeLastOrNull()
+                        backStack.add(VenueDetails(it))
+                    },
+                    onBack = { backStack.removeLastOrNull() }
                 )
             }
             entry<VenueDetails> { key ->

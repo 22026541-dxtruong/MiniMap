@@ -1,3 +1,5 @@
+import com.google.protobuf.gradle.*
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.serialization)
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
+    id("com.google.protobuf")
 }
 
 android {
@@ -76,6 +79,21 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.room.ktx)
+    //Proto
+    implementation(libs.protobuf.kotlin.lite)
+    //QR
+    implementation(libs.zxing.core)
+    implementation(libs.barcode.scanning)
+    //Camera
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.compose)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.camera2)
+    //Permission
+    implementation(libs.accompanist.permissions)
+    //Coil
+    implementation(libs.coil.compose)
+    implementation(libs.android.image.cropper)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -84,4 +102,25 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:4.33.1"
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                id("java") {
+                    option("lite")
+                }
+                id("kotlin") {
+                    option("lite")
+                }
+//                create("kotlin") {
+//                    option("lite") // đúng cú pháp
+//                }  // dùng Lite cho Android
+            }
+        }
+    }
 }

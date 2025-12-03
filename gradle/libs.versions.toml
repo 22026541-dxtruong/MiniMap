@@ -1,6 +1,12 @@
 [versions]
 agp = "8.13.1"
+androidImageCropper = "4.7.0"
+barcodeScanning = "17.3.0"
+camerax = "1.5.1"
+accompanist = "0.37.3"
+coilCompose = "3.3.0"
 core = "1.51.0"
+coreVersion = "3.5.4"
 filamentAndroid = "1.67.0"
 gltfioAndroid = "1.67.0"
 kotlin = "2.2.0"
@@ -14,6 +20,7 @@ lifecycleRuntimeKtx = "2.6.1"
 activityCompose = "1.8.0"
 composeBom = "2024.09.00"
 playServicesAuth = "21.4.0"
+protobufKotlinLite = "4.33.1"
 roomRuntime = "2.8.3"
 nav3Core = "1.0.0"
 lifecycleViewmodelNav3 = "2.10.0"
@@ -21,6 +28,7 @@ kotlinSerialization = "2.2.21"
 kotlinxSerializationCore = "1.9.0"
 
 [libraries]
+android-image-cropper = { module = "com.vanniktech:android-image-cropper", version.ref = "androidImageCropper" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomRuntime" }
@@ -29,6 +37,13 @@ androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3Core" }
 androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "nav3Core" }
 androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycleViewmodelNav3" }
+androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "camerax" }
+androidx-camera-compose = { module = "androidx.camera:camera-compose", version.ref = "camerax" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanist" }
+barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "barcodeScanning" }
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCompose" }
 gltfio-android = { module = "com.google.android.filament:gltfio-android", version.ref = "gltfioAndroid" }
 filament-android = { module = "com.google.android.filament:filament-android", version.ref = "filamentAndroid" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinxSerializationCore" }
@@ -49,6 +64,8 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
+protobuf-kotlin-lite = { module = "com.google.protobuf:protobuf-kotlin-lite", version.ref = "protobufKotlinLite" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "coreVersion" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

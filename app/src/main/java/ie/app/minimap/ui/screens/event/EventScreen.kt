@@ -93,12 +93,12 @@ fun EventScreen(
                             )),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        items(uiState.events, key = { it.eventId }) { event ->
+                        items(uiState.events, key = { it.event.id }) { event ->
                             EventCard(
-                                name = event.eventName,
+                                name = event.event.name,
                                 building = event.buildingName,
                                 floor = event.floorName,
-                                onClick = { onClickEvent(event.eventId) }
+                                onClick = { onClickEvent(event.event.id) }
                             )
                         }
                     }

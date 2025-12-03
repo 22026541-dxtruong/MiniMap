@@ -13,6 +13,9 @@ interface FloorConnectionDao {
     @Upsert
     suspend fun upsert(connection: FloorConnection): Long
 
+    @Upsert
+    suspend fun upsert(connections: List<FloorConnection>)
+
     @Delete
     suspend fun delete(connection: FloorConnection)
 
@@ -32,5 +35,8 @@ interface FloorConnectionDao {
         ORDER BY id ASC
     """)
     fun getFloorConnectionsByFloorId(floorId: Long): Flow<List<FloorConnection>>
+
+    @Query("SELECT * FROM floor_connections WHERE venue_id = :venueId ORDER BY from_floor, type ASC")
+    fun getFloorConnectionsByVenueId(venueId: Long): Flow<List<FloorConnection>>
 
 }

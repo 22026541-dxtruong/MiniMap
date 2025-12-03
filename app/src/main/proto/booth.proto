@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+option java_package = "ie.app.minimap.data.proto";
+option java_multiple_files = true;
+
+message BoothProto {
+  int64 id = 1;
+  int64 vendor_id = 2;
+  int64 venue_id = 3;
+  int64 building_id = 4;
+  int64 floor_id = 5;
+  int64 node_id = 6;
+  string name = 7;
+  string description = 8;
+  string category = 9;
+  string img_url = 10;
+  int64 created_at = 11;
+}

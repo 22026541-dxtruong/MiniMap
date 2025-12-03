@@ -16,8 +16,14 @@ interface VendorDao {
     @Query("SELECT * from vendors")
     fun getAllVendors(): Flow<List<Vendor>>
 
+    @Query("SELECT * from vendors WHERE venue_id = :venueId")
+    fun getVendorsByVenueId(venueId: Long): Flow<List<Vendor>>
+
     @Upsert
     suspend fun upsert(vendor: Vendor): Long
+
+    @Upsert
+    suspend fun upsert(vendors: List<Vendor>)
 
     @Delete
     suspend fun delete(vendor: Vendor)

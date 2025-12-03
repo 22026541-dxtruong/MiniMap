@@ -3,14 +3,28 @@
     android:height="24dp"
     android:viewportWidth="960"
     android:viewportHeight="960">
-  <group>
-    <clip-path
-        android:pathData="M0,0h960v960h-960zM800,840v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Z"/>
-    <path
-        android:pathData="M480,560 L40,320l440,-240 440,240 -440,240ZM480,720L63,493l84,-46 333,182 333,-182 84,46 -417,227ZM480,880L63,653l84,-46 333,182 333,-182 84,46L480,880ZM480,469 L753,320 480,171 207,320 480,469ZM480,320Z"
-        android:fillColor="#e3e3e3"/>
-  </group>
-  <path
-      android:pathData="M800,840v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Z"
-      android:fillColor="#e3e3e3"/>
+
+    <group android:translateY="960">
+
+        <path
+            android:fillColor="#FF000000"
+            android:pathData="M480-400 40-640l440-240 440 240-440 240Zm0 160L63-467l84-46 333 182 333-182 84 46-417 227Zm0 160L63-307l84-46 333 182 333-182 84 46L480-80Zm0-411 273-149-273-149-273 149 273 149Zm0-149Z"/>
+
+        <group
+            android:translateX="500"
+            android:translateY="-50"
+            android:scaleX="0.45"
+            android:scaleY="0.45">
+
+            <path
+                android:pathData="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"
+                android:strokeWidth="120"
+                android:strokeLineJoin="round"
+                android:strokeColor="@android:color/white" />
+
+            <path
+                android:fillColor="#FF000000"
+                android:pathData="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"/>
+        </group>
+    </group>
 </vector>
