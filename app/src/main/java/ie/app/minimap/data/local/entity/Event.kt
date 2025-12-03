@@ -43,7 +43,20 @@ data class Event(
     val imgUrl: String = "",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    constructor(proto: EventProto) : this(
+        id = proto.id,
+        boothId = proto.boothId,
+        venueId = proto.venueId,
+        name = proto.name,
+        description = proto.description,
+        startTime = proto.startTime,
+        endTime = proto.endTime,
+        category = proto.category,
+        imgUrl = proto.imgUrl,
+        createdAt = proto.createdAt
+    )
+}
 
 fun Event.toProto(): EventProto {
     return EventProto.newBuilder()
@@ -58,19 +71,4 @@ fun Event.toProto(): EventProto {
         .setImgUrl(imgUrl)
         .setCreatedAt(createdAt)
         .build()
-}
-
-fun Event.fromProto(proto: EventProto): Event {
-    return Event(
-        id = proto.id,
-        boothId = proto.boothId,
-        venueId = proto.venueId,
-        name = proto.name,
-        description = proto.description,
-        startTime = proto.startTime,
-        endTime = proto.endTime,
-        category = proto.category,
-        imgUrl = proto.imgUrl,
-        createdAt = proto.createdAt
-    )
 }

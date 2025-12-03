@@ -64,7 +64,19 @@ data class FloorConnection(
     val weight: Float = 0f,
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    constructor(proto: FloorConnectionProto) : this(
+        id = proto.id,
+        buildingId = proto.buildingId,
+        fromFloor = proto.fromFloor,
+        fromNode = proto.fromNode,
+        toFloor = proto.toFloor,
+        toNode = proto.toNode,
+        type = proto.type,
+        weight = proto.weight,
+        createdAt = proto.createdAt
+    )
+}
 
 fun FloorConnection.toProto(): FloorConnectionProto {
     return FloorConnectionProto.newBuilder()
@@ -78,18 +90,4 @@ fun FloorConnection.toProto(): FloorConnectionProto {
         .setWeight(weight)
         .setCreatedAt(createdAt)
         .build()
-}
-
-fun FloorConnection.fromProto(proto: FloorConnectionProto): FloorConnection {
-    return FloorConnection(
-        id = proto.id,
-        buildingId = proto.buildingId,
-        fromFloor = proto.fromFloor,
-        fromNode = proto.fromNode,
-        toFloor = proto.toFloor,
-        toNode = proto.toNode,
-        type = proto.type,
-        weight = proto.weight,
-        createdAt = proto.createdAt
-    )
 }

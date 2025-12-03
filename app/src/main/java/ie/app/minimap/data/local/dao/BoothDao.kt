@@ -18,6 +18,9 @@ interface BoothDao {
     @Upsert
     suspend fun upsert(booth: Booth): Long
 
+    @Upsert
+    suspend fun upsert(booths: List<Booth>)
+
     @Delete
     suspend fun delete(booth: Booth)
 }

@@ -15,6 +15,9 @@ interface BuildingDao {
     @Upsert
     suspend fun upsert(building: Building): Long
 
+    @Upsert
+    suspend fun upsert(buildings: List<Building>)
+
     @Delete
     suspend fun delete(building: Building)
 

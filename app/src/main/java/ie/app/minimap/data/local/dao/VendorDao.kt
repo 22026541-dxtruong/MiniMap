@@ -19,6 +19,9 @@ interface VendorDao {
     @Upsert
     suspend fun upsert(vendor: Vendor): Long
 
+    @Upsert
+    suspend fun upsert(vendors: List<Vendor>)
+
     @Delete
     suspend fun delete(vendor: Vendor)
 }

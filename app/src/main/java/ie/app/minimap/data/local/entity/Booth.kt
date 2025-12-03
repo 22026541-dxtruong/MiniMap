@@ -66,7 +66,21 @@ data class Booth(
     val imgUrl: String = "",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    constructor(proto: BoothProto) : this(
+        id = proto.id,
+        vendorId = proto.vendorId,
+        venueId = proto.venueId,
+        buildingId = proto.buildingId,
+        floorId = proto.floorId,
+        nodeId = proto.nodeId,
+        name = proto.name,
+        description = proto.description,
+        category = proto.category,
+        imgUrl = proto.imgUrl,
+        createdAt = proto.createdAt
+    )
+}
 
 fun Booth.toProto(): BoothProto {
     return BoothProto.newBuilder()
@@ -83,20 +97,3 @@ fun Booth.toProto(): BoothProto {
         .setCreatedAt(createdAt)
         .build()
 }
-
-fun Booth.fromProto(proto: BoothProto): Booth {
-    return Booth(
-        id = proto.id,
-        vendorId = proto.vendorId,
-        venueId = proto.venueId,
-        buildingId = proto.buildingId,
-        floorId = proto.floorId,
-        nodeId = proto.nodeId,
-        name = proto.name,
-        description = proto.description,
-        category = proto.category,
-        imgUrl = proto.imgUrl,
-        createdAt = proto.createdAt
-    )
-}
-

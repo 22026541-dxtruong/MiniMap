@@ -63,10 +63,11 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideInfoRepository(
+        db: AppDatabase,
         vendorDao: VendorDao,
         boothDao: BoothDao,
         nodeDao: NodeDao,
         eventDao: EventDao
-    ): InfoRepository = InfoRepository(vendorDao, boothDao, nodeDao, eventDao)
+    ): InfoRepository = InfoRepository(db, vendorDao, boothDao, nodeDao, eventDao)
 
 }

@@ -38,6 +38,17 @@ data class Node(
         const val CONNECTOR = "Connector"
         const val INTERSECTION = "Intersection"
     }
+
+    constructor(proto: NodeProto) : this(
+        id = proto.id,
+        floorId = proto.floorId,
+        label = proto.label,
+        type = proto.type,
+        x = proto.x,
+        y = proto.y,
+        cloudAnchorId = proto.cloudAnchorId,
+        createdAt = proto.createdAt
+    )
 }
 
 fun Node.toProto(): NodeProto {
@@ -51,17 +62,4 @@ fun Node.toProto(): NodeProto {
         .setCloudAnchorId(cloudAnchorId)
         .setCreatedAt(createdAt)
         .build()
-}
-
-fun Node.fromProto(proto: NodeProto): Node {
-    return Node(
-        id = proto.id,
-        floorId = proto.floorId,
-        label = proto.label,
-        type = proto.type,
-        x = proto.x,
-        y = proto.y,
-        cloudAnchorId = proto.cloudAnchorId,
-        createdAt = proto.createdAt
-    )
 }

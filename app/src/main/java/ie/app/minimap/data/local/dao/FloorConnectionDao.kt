@@ -13,6 +13,9 @@ interface FloorConnectionDao {
     @Upsert
     suspend fun upsert(connection: FloorConnection): Long
 
+    @Upsert
+    suspend fun upsert(connections: List<FloorConnection>)
+
     @Delete
     suspend fun delete(connection: FloorConnection)
 

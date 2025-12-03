@@ -3,11 +3,20 @@ package ie.app.minimap.data.local.dao
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Upsert
 import ie.app.minimap.data.local.dto.EventWithBuildingAndFloor
+import ie.app.minimap.data.local.entity.Event
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface EventDao {
+
+    @Upsert
+    fun upsert(event: Event)
+
+    @Upsert
+    fun upsert(events: List<Event>)
+
     @Transaction
     @Query("""
     SELECT 

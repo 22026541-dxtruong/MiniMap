@@ -27,7 +27,15 @@ data class Floor(
     val name: String = "Floor 1",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    constructor(proto: FloorProto) : this(
+        id = proto.id,
+        buildingId = proto.buildingId,
+        level = proto.level,
+        name = proto.name,
+        createdAt = proto.createdAt
+    )
+}
 
 fun Floor.toProto(): FloorProto {
     return FloorProto.newBuilder()
@@ -37,14 +45,4 @@ fun Floor.toProto(): FloorProto {
         .setName(name)
         .setCreatedAt(createdAt)
         .build()
-}
-
-fun Floor.fromProto(proto: FloorProto): Floor {
-    return Floor(
-        id = proto.id,
-        buildingId = proto.buildingId,
-        level = proto.level,
-        name = proto.name,
-        createdAt = proto.createdAt
-    )
 }

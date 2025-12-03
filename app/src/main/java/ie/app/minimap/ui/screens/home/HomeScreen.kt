@@ -59,6 +59,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     onClickVenue: (Long) -> Unit,
+    onQrScanClicked: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
@@ -90,7 +91,7 @@ fun HomeScreen(
         topBar = {
             HomeTopBar(
                 onSearchClicked = {},
-                onQrScanClicked = {}
+                onQrScanClicked = onQrScanClicked
             )
         },
         floatingActionButton = {

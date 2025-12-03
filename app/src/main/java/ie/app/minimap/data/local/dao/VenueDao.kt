@@ -18,6 +18,9 @@ interface VenueDao {
     @Upsert
     suspend fun upsert(venue: Venue): Long
 
+    @Upsert
+    suspend fun upsert(venues: List<Venue>)
+
     @Delete
     suspend fun delete(venue: Venue)
 

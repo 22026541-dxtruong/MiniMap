@@ -20,7 +20,17 @@ data class Vendor(
     val logoUrl: String = "",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    constructor(proto: VendorProto) : this(
+        id = proto.id,
+        name = proto.name,
+        description = proto.description,
+        category = proto.category,
+        contactInfo = proto.contactInfo,
+        logoUrl = proto.logoUrl,
+        createdAt = proto.createdAt
+    )
+}
 
 fun Vendor.toProto(): VendorProto {
     return VendorProto.newBuilder()
@@ -32,16 +42,4 @@ fun Vendor.toProto(): VendorProto {
         .setLogoUrl(logoUrl)
         .setCreatedAt(createdAt)
         .build()
-}
-
-fun Vendor.fromProto(proto: VendorProto): Vendor {
-    return Vendor(
-        id = proto.id,
-        name = proto.name,
-        description = proto.description,
-        category = proto.category,
-        contactInfo = proto.contactInfo,
-        logoUrl = proto.logoUrl,
-        createdAt = proto.createdAt
-    )
 }

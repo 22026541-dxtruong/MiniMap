@@ -13,6 +13,9 @@ interface NodeDao {
     @Upsert
     suspend fun upsert(node: Node): Long
 
+    @Upsert
+    suspend fun upsert(nodes: List<Node>)
+
     @Delete
     suspend fun delete(node: Node)
 

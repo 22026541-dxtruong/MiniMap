@@ -15,6 +15,9 @@ interface FloorDao {
     @Upsert
     suspend fun upsert(floor: Floor): Long
 
+    @Upsert
+    suspend fun upsert(floors: List<Floor>)
+
     @Delete
     suspend fun delete(floor: Floor)
 

@@ -45,7 +45,17 @@ data class Edge(
     val type: String = "",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    constructor(proto: EdgeProto) : this(
+        id = proto.id,
+        floorId = proto.floorId,
+        fromNode = proto.fromNode,
+        toNode = proto.toNode,
+        weight = proto.weight,
+        type = proto.type,
+        createdAt = proto.createdAt
+    )
+}
 
 fun Edge.toProto(): EdgeProto {
     return EdgeProto.newBuilder()
@@ -57,16 +67,4 @@ fun Edge.toProto(): EdgeProto {
         .setType(type)
         .setCreatedAt(createdAt)
         .build()
-}
-
-fun Edge.fromProto(proto: EdgeProto): Edge {
-    return Edge(
-        id = proto.id,
-        floorId = proto.floorId,
-        fromNode = proto.fromNode,
-        toNode = proto.toNode,
-        weight = proto.weight,
-        type = proto.type,
-        createdAt = proto.createdAt
-    )
 }

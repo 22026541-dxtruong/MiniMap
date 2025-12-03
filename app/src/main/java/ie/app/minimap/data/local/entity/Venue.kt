@@ -16,7 +16,15 @@ data class Venue(
     val description: String = "Description",
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    constructor(proto: VenueProto) : this(
+        id = proto.id,
+        name = proto.name,
+        address = proto.address,
+        description = proto.description,
+        createdAt = proto.createdAt
+    )
+}
 
 fun Venue.toProto(): VenueProto {
     return VenueProto.newBuilder()
@@ -26,14 +34,4 @@ fun Venue.toProto(): VenueProto {
         .setDescription(description)
         .setCreatedAt(createdAt)
         .build()
-}
-
-fun Venue.fromProto(proto: VenueProto): Venue {
-    return Venue(
-        id = proto.id,
-        name = proto.name,
-        address = proto.address,
-        description = proto.description,
-        createdAt = proto.createdAt
-    )
 }

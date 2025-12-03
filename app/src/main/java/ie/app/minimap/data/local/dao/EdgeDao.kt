@@ -13,6 +13,9 @@ interface EdgeDao {
     @Upsert
     suspend fun upsert(edge: Edge): Long
 
+    @Upsert
+    suspend fun upsert(edges: List<Edge>)
+
     @Delete
     suspend fun delete(edge: Edge)
 
