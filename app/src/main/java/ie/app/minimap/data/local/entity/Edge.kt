@@ -35,6 +35,8 @@ import ie.app.minimap.data.proto.EdgeProto
 data class Edge(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    @ColumnInfo(name = "venue_id")
+    val venueId: Long = 0,
     @ColumnInfo(name = "floor_id")
     val floorId: Long = 0,
     @ColumnInfo(name = "from_node")
@@ -48,6 +50,7 @@ data class Edge(
 ) {
     constructor(proto: EdgeProto) : this(
         id = proto.id,
+        venueId = proto.venueId,
         floorId = proto.floorId,
         fromNode = proto.fromNode,
         toNode = proto.toNode,
@@ -60,6 +63,7 @@ data class Edge(
 fun Edge.toProto(): EdgeProto {
     return EdgeProto.newBuilder()
         .setId(id)
+        .setVenueId(venueId)
         .setFloorId(floorId)
         .setFromNode(fromNode)
         .setToNode(toNode)

@@ -5,10 +5,11 @@ option java_multiple_files = true;
 
 message VendorProto {
   int64 id = 1;
-  string name = 2;
-  string description = 3;
-  string category = 4;
-  string contact_info = 5;
-  string logo_url = 6;
-  int64 created_at = 7;
+  int64 venue_id = 2;
+  string name = 3;
+  string description = 4;
+  string category = 5;
+  string contact_info = 6;
+  string logo_url = 7;
+  int64 created_at = 8;
 }

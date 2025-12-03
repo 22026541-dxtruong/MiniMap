@@ -80,8 +80,7 @@ class QrScannerViewModel @Inject constructor(
                     }
                 )
             }
-//        camera =
-            processCameraProvider.bindToLifecycle(
+        camera = processCameraProvider.bindToLifecycle(
             lifecycleOwner,
             DEFAULT_BACK_CAMERA,
             cameraPreviewUseCase,
@@ -100,13 +99,6 @@ class QrScannerViewModel @Inject constructor(
         if (::camera.isInitialized) {
             camera.cameraControl.enableTorch(on)
         }
-    }
-
-    fun protoToQrData(proto: SharedDataProto): String {
-        val bytes = proto.toByteArray() // Protobuf binary
-        val bos = ByteArrayOutputStream()
-        GZIPOutputStream(bos).use { it.write(bytes) }
-        return Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP)
     }
 
     private fun qrDataToProto(qrData: String): SharedDataProto {

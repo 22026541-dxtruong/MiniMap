@@ -67,7 +67,23 @@ object RepositoryModule {
         vendorDao: VendorDao,
         boothDao: BoothDao,
         nodeDao: NodeDao,
-        eventDao: EventDao
-    ): InfoRepository = InfoRepository(db, vendorDao, boothDao, nodeDao, eventDao)
+        eventDao: EventDao,
+        buildingDao: BuildingDao,
+        floorDao: FloorDao,
+        floorConnectionDao: FloorConnectionDao,
+        edgeDao: EdgeDao,
+        venueDao: VenueDao
+    ): InfoRepository = InfoRepository(
+        db,
+        venueDao,
+        vendorDao,
+        boothDao,
+        nodeDao,
+        buildingDao,
+        floorDao,
+        floorConnectionDao,
+        edgeDao,
+        eventDao
+    )
 
 }

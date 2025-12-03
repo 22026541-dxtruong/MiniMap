@@ -21,6 +21,8 @@ import ie.app.minimap.data.proto.FloorProto
 data class Floor(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    @ColumnInfo(name = "venue_id")
+    val venueId: Long = 0,
     @ColumnInfo(name = "building_id")
     val buildingId: Long = 0,
     val level: Int = 1,
@@ -30,6 +32,7 @@ data class Floor(
 ) {
     constructor(proto: FloorProto) : this(
         id = proto.id,
+        venueId = proto.venueId,
         buildingId = proto.buildingId,
         level = proto.level,
         name = proto.name,
@@ -40,6 +43,7 @@ data class Floor(
 fun Floor.toProto(): FloorProto {
     return FloorProto.newBuilder()
         .setId(id)
+        .setVenueId(venueId)
         .setBuildingId(buildingId)
         .setLevel(level)
         .setName(name)

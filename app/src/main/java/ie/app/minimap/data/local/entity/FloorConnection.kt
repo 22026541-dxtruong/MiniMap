@@ -49,6 +49,8 @@ import ie.app.minimap.data.proto.FloorConnectionProto
 data class FloorConnection(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    @ColumnInfo(name = "venue_id")
+    val venueId: Long = 0,
     @ColumnInfo(name = "building_id")
     val buildingId: Long = 0,
     @ColumnInfo(name = "from_floor")
@@ -67,6 +69,7 @@ data class FloorConnection(
 ) {
     constructor(proto: FloorConnectionProto) : this(
         id = proto.id,
+        venueId = proto.venueId,
         buildingId = proto.buildingId,
         fromFloor = proto.fromFloor,
         fromNode = proto.fromNode,
@@ -81,6 +84,7 @@ data class FloorConnection(
 fun FloorConnection.toProto(): FloorConnectionProto {
     return FloorConnectionProto.newBuilder()
         .setId(id)
+        .setVenueId(venueId)
         .setBuildingId(buildingId)
         .setFromFloor(fromFloor)
         .setFromNode(fromNode)

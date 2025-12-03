@@ -83,6 +83,7 @@ dependencies {
     implementation(libs.protobuf.kotlin.lite)
     //QR
     implementation(libs.zxing.core)
+    implementation(libs.barcode.scanning)
     //Camera
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.compose)

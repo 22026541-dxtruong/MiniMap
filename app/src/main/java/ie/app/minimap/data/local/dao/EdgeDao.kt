@@ -28,4 +28,7 @@ interface EdgeDao {
     @Query("SELECT * FROM edges WHERE floor_id = :floorId ORDER BY id ASC")
     fun getEdgesByFloorId(floorId: Long): Flow<List<Edge>>
 
+    @Query("SELECT * FROM edges WHERE venue_id = :venueId ORDER BY id ASC")
+    fun getEdgesByVenueId(venueId: Long): Flow<List<Edge>>
+
 }

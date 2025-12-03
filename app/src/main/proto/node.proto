@@ -6,11 +6,12 @@ option java_multiple_files = true;
 // Node
 message NodeProto {
   int64 id = 1;
-  int64 floor_id = 2;
-  string type = 3;
-  float x = 4;
-  float y = 5;
-  string label = 6;
-  string cloud_anchor_id = 7;
-  int64 created_at = 8;
+  int64 venue_id = 2;
+  int64 floor_id = 3;
+  string type = 4;
+  float x = 5;
+  float y = 6;
+  string label = 7;
+  string cloud_anchor_id = 8;
+  int64 created_at = 9;
 }

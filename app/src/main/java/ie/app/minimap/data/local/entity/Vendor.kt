@@ -11,6 +11,8 @@ import ie.app.minimap.data.proto.VendorProto
 data class Vendor(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    @ColumnInfo(name = "venue_id")
+    val venueId: Long = 0,
     val name: String = "Vendor",
     val description: String = "Description",
     val category: String = "Category",
@@ -23,6 +25,7 @@ data class Vendor(
 ) {
     constructor(proto: VendorProto) : this(
         id = proto.id,
+        venueId = proto.venueId,
         name = proto.name,
         description = proto.description,
         category = proto.category,
@@ -35,6 +38,7 @@ data class Vendor(
 fun Vendor.toProto(): VendorProto {
     return VendorProto.newBuilder()
         .setId(id)
+        .setVenueId(venueId)
         .setName(name)
         .setDescription(description)
         .setCategory(category)

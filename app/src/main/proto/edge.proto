@@ -6,10 +6,11 @@ option java_multiple_files = true;
 // Edge
 message EdgeProto {
   int64 id = 1;
-  int64 floor_id = 2;
-  int64 from_node = 3;
-  int64 to_node = 4;
-  float weight = 5;
-  string type = 6;
-  int64 created_at = 7;
+  int64 venue_id = 2;
+  int64 floor_id = 3;
+  int64 from_node = 4;
+  int64 to_node = 5;
+  float weight = 6;
+  string type = 7;
+  int64 created_at = 8;
 }

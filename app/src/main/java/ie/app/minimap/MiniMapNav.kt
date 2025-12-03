@@ -50,7 +50,7 @@ fun MiniMapNav(
             entry<QrScanner> {
                 QrScannerScreen(
                     onScannedSuccess = {
-                        backStack.removeLast()
+                        backStack.removeLastOrNull()
                         backStack.add(VenueDetails(it))
                     },
                     onBack = { backStack.removeLastOrNull() }

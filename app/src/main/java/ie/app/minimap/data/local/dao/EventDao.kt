@@ -17,6 +17,12 @@ interface EventDao {
     @Upsert
     fun upsert(events: List<Event>)
 
+    @Query("SELECT * FROM events WHERE booth_id = :boothId ORDER BY start_time ASC")
+    fun getEventsByBoothId(boothId: Long): Flow<List<Event>>
+
+    @Query("SELECT * FROM events WHERE venue_id = :venueId ORDER BY start_time ASC")
+    fun getEventsByVenueId(venueId: Long): Flow<List<Event>>
+
     @Transaction
     @Query("""
     SELECT 

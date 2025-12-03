@@ -21,6 +21,8 @@ import ie.app.minimap.data.proto.NodeProto
 data class Node(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    @ColumnInfo(name = "venue_id")
+    val venueId: Long = 0,
     @ColumnInfo(name = "floor_id")
     val floorId: Long = 0,
     val label: String = "",
@@ -41,6 +43,7 @@ data class Node(
 
     constructor(proto: NodeProto) : this(
         id = proto.id,
+        venueId = proto.venueId,
         floorId = proto.floorId,
         label = proto.label,
         type = proto.type,
@@ -54,6 +57,7 @@ data class Node(
 fun Node.toProto(): NodeProto {
     return NodeProto.newBuilder()
         .setId(id)
+        .setVenueId(venueId)
         .setFloorId(floorId)
         .setLabel(label)
         .setType(type)
