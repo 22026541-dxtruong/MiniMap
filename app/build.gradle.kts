@@ -93,7 +93,6 @@ dependencies {
     implementation(libs.accompanist.permissions)
     //Coil
     implementation(libs.coil.compose)
-    implementation(libs.android.image.cropper)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

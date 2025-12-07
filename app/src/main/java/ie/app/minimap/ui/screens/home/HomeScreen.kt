@@ -1,7 +1,6 @@
 package ie.app.minimap.ui.screens.home
 
 import android.annotation.SuppressLint
-import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
@@ -135,7 +134,7 @@ fun HomeScreen(
                     ) {
                         items(uiState.venues.toList(), key = { it.first }) { venue ->
                             VenueCard(
-                                bitmap = viewModel.generateQrCode(venue.first),
+                                bitmap = viewModel.generateQrCode(context, venue.first),
                                 name = venue.second.name,
                                 address = venue.second.address,
                                 description = venue.second.description,
@@ -147,7 +146,7 @@ fun HomeScreen(
                                 onShareImage = {
                                     viewModel.shareImage(
                                         context = context,
-                                        bitmap = viewModel.generateQrCode(venue.first)
+                                        bitmap = viewModel.generateQrCode(context, venue.first)
                                     )
                                 },
                                 onDelete = {

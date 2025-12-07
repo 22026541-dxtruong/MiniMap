@@ -1,8 +1,7 @@
 package ie.app.minimap.ui.screens.qrscanner
 
 import android.content.Context
-import android.graphics.BitmapFactory
-import android.net.Uri
+import android.graphics.Bitmap
 import android.util.Base64
 import android.util.Log
 import android.util.Size
@@ -34,9 +33,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPInputStream
-import java.util.zip.GZIPOutputStream
 import javax.inject.Inject
 
 data class QrScannerUiState(
@@ -129,52 +126,27 @@ class QrScannerViewModel @Inject constructor(
         }
     }
 
-    fun onImageCropped(context: Context, uri: Uri?) {
-        if (uri == null) return
-
+    fun onBitmapScanned(bitmap: Bitmap) {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val inputStream = context.contentResolver.openInputStream(uri)
-                val bitmap = BitmapFactory.decodeStream(inputStream)
-
-                if (bitmap == null) {
-                    _uiState.update { it.copy(isLoading = false, error = "Lỗi đọc ảnh") }
-                    return@launch
-                }
-
                 val width = bitmap.width
                 val height = bitmap.height
                 val pixels = IntArray(width * height)
                 bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-                bitmap.recycle()
+                // bitmap.recycle() // Có thể recycle nếu không dùng nữa
 
-                // Tạo source cho ZXing
                 val source = RGBLuminanceSource(width, height, pixels)
                 val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
-
-                // Cấu hình Reader chỉ tìm QR Code
                 val reader = MultiFormatReader().apply {
-                    setHints(
-                        mapOf(DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE))
-                    )
+                    setHints(mapOf(DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE)))
                 }
 
-                try {
-                    // Dùng decode() thay vì decodeMultiple()
-                    // Nó sẽ trả về kết quả tốt nhất tìm được trong vùng crop
-                    val result = reader.decode(binaryBitmap)
-                    Log.d("QrScannerViewModel", "QR Code scanned: ${result.text}")
-                    // Tìm thấy -> Import luôn
-                    importProtoToRoom(result.text)
-
-                } catch (e: Exception) {
-                    // NotFoundException
-                    _uiState.update { it.copy(isLoading = false, error = "Không tìm thấy mã QR trong vùng đã chọn") }
-                }
+                val result = reader.decode(binaryBitmap)
+                importProtoToRoom(result.text)
 
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = "Lỗi xử lý: ${e.message}") }
+                _uiState.update { it.copy(isLoading = false, error = "Không tìm thấy QR trong vùng chọn") }
             }
         }
     }

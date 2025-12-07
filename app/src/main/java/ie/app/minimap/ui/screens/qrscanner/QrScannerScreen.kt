@@ -27,9 +27,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,16 +43,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.canhub.cropper.CropImageContract
-import com.canhub.cropper.CropImageContractOptions
-import com.canhub.cropper.CropImageOptions
-import com.canhub.cropper.CropImageView
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -78,35 +71,13 @@ fun QrScannerScreen(
     val surfaceRequest by viewModel.surfaceRequest.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val cropImageLauncher = rememberLauncherForActivityResult(
-        contract = CropImageContract()
-    ) { result ->
-        if (result.isSuccessful) {
-            // Cắt xong -> Gửi ảnh đã cắt cho ViewModel xử lý ngay lập tức
-            viewModel.onImageCropped(context, result.uriContent)
-        }
-    }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            // Chọn xong -> Mở màn hình Cắt ảnh
-            val cropOptions = CropImageContractOptions(
-                uri,
-                CropImageOptions(
-                    imageSourceIncludeGallery = false,
-                    imageSourceIncludeCamera = false,
-                    cropShape = CropImageView.CropShape.RECTANGLE,
-                    // Cấu hình UI đẹp
-                    borderLineColor = android.graphics.Color.GREEN,
-                    guidelinesColor = android.graphics.Color.GREEN,
-                    activityTitle = "Cắt mã QR",
-                    toolbarColor = android.graphics.Color.BLACK,
-                    activityMenuIconColor = android.graphics.Color.WHITE,
-                    backgroundColor = android.graphics.Color.BLACK
-                )
-            )
-            cropImageLauncher.launch(cropOptions)
+            selectedImageUri = uri
         }
     }
     var isFlashOn by remember { mutableStateOf(false) }
@@ -122,86 +93,100 @@ fun QrScannerScreen(
     }
 
     Scaffold { innerPadding ->
-        Box(modifier = modifier.fillMaxSize().padding(innerPadding)) {
-            surfaceRequest?.let { request ->
-                CameraXViewfinder(
-                    surfaceRequest = request,
-                    modifier = modifier
+        Box(modifier = modifier
+            .fillMaxSize()
+            .padding(innerPadding)) {
+
+            if (selectedImageUri != null) {
+                QrCropper(
+                    imageUri = selectedImageUri!!,
+                    onCancel = { selectedImageUri = null },
+                    onCropSuccess = { croppedBitmap ->
+                        selectedImageUri = null
+                        viewModel.onBitmapScanned(croppedBitmap) // Hàm này bạn đã có ở bước trước
+                    }
                 )
-            }
-
-            QrScannerOverlay(
-                modifier = Modifier.align(Alignment.Center),
-                scanWindowSize = 280f
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp, start = 16.dp, end = 16.dp)
-                    .align(Alignment.TopCenter),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                        .size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = Color.White
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 60.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-
-                // Nút Flashlight
-                IconButton(
-                    onClick = {
-                        isFlashOn = !isFlashOn
-                         viewModel.toggleFlash(isFlashOn)
-                    },
-                    modifier = Modifier
-                        .background(Color.White.copy(alpha = 0.2f), CircleShape)
-                        .size(56.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.outline_flashlight_on_24),
-                        contentDescription = "Flash",
-                        tint = if (isFlashOn) Color.Blue else Color.White
+            } else {
+                surfaceRequest?.let { request ->
+                    CameraXViewfinder(
+                        surfaceRequest = request,
+                        modifier = modifier
                     )
                 }
 
-                IconButton(
-                    onClick = {
-                        photoPickerLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                QrScannerOverlay(
+                    modifier = Modifier.align(Alignment.Center),
+                    scanWindowSize = 280f
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                        .align(Alignment.TopCenter),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                            .size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color.White
                         )
-                    },
-                    modifier = Modifier
-                        .background(Color.White.copy(alpha = 0.2f), CircleShape)
-                        .size(56.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.outline_imagesmode_24),
-                        contentDescription = "Image source",
-                        tint = Color.White
-                    )
+                    }
                 }
-            }
 
-            if (uiState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 60.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+
+                    // Nút Flashlight
+                    IconButton(
+                        onClick = {
+                            isFlashOn = !isFlashOn
+                            viewModel.toggleFlash(isFlashOn)
+                        },
+                        modifier = Modifier
+                            .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                            .size(56.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.outline_flashlight_on_24),
+                            contentDescription = "Flash",
+                            tint = if (isFlashOn) Color.Blue else Color.White
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        modifier = Modifier
+                            .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                            .size(56.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.outline_imagesmode_24),
+                            contentDescription = "Image source",
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                }
             }
         }
     }
