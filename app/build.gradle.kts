@@ -93,6 +93,8 @@ dependencies {
     implementation(libs.accompanist.permissions)
     //Coil
     implementation(libs.coil.compose)
+    //SplashScreen
+    implementation("androidx.core:core-splashscreen:1.2.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
