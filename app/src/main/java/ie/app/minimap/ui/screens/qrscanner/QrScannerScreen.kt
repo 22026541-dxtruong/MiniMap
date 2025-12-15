@@ -52,6 +52,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import ie.app.minimap.R
+import ie.app.minimap.ui.qr.QrCropper
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable

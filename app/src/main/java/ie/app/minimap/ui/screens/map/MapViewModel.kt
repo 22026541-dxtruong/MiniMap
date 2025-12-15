@@ -149,8 +149,7 @@ class MapViewModel @Inject constructor(
         .flatMapLatest { buildingId ->
             Log.d("MapEditorViewModel", "Building ID: $buildingId")
             // Tải BuildingWithFloors và chỉ lấy ra danh sách Floors
-            mapRepository.getBuildingWithFloorsByBuildingId(buildingId)
-                .map { it.floors }
+            mapRepository.getFloorsByBuildingId(buildingId)
         }
         .onEach { floors ->
             // Cập nhật StateFlow _floors và chọn Floor đầu tiên

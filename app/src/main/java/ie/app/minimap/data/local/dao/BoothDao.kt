@@ -16,7 +16,7 @@ interface BoothDao {
     fun getAllBooths(): Flow<List<Booth>>
 
     @Query("SELECT * from booths WHERE venue_id = :venueId")
-    fun getBoothsByVenueId(venueId: Long): Flow<List<Booth>>
+    fun getBoothsByVenueId(venueId: Long): List<Booth>
 
     @Upsert
     suspend fun upsert(booth: Booth): Long

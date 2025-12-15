@@ -29,6 +29,6 @@ interface NodeDao {
     fun getNodesByLabel(label: String, floorId :Long): Flow<List<Node>>
 
     @Query("SELECT * FROM nodes WHERE venue_id = :venueId ORDER BY id ASC")
-    fun getNodesByVenueId(venueId: Long): Flow<List<Node>>
+    fun getNodesByVenueId(venueId: Long): List<Node>
 
 }

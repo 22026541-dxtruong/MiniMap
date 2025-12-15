@@ -73,15 +73,15 @@ class InfoRepository @Inject constructor(
 
     suspend fun exportRoomToProto(venueId: Long): SharedDataProto {
         return db.withTransaction {
-            val venue = venueDao.getVenueById(venueId).first()
-            val vendors = vendorDao.getVendorsByVenueId(venueId).first()
-            val booths = boothDao.getBoothsByVenueId(venueId).first()
-            val nodes = nodeDao.getNodesByVenueId(venueId).first()
+            val venue = venueDao.getVenueById(venueId)
+            val vendors = vendorDao.getVendorsByVenueId(venueId)
+            val booths = boothDao.getBoothsByVenueId(venueId)
+            val nodes = nodeDao.getNodesByVenueId(venueId)
             val buildings = buildingDao.getBuildingsByVenueId(venueId).first()
-            val floors = floorDao.getFloorsByVenueId(venueId).first()
-            val floorConnections = floorConnectionDao.getFloorConnectionsByVenueId(venueId).first()
-            val edges = edgeDao.getEdgesByVenueId(venueId).first()
-            val events = eventDao.getEventsByVenueId(venueId).first()
+            val floors = floorDao.getFloorsByVenueId(venueId)
+            val floorConnections = floorConnectionDao.getFloorConnectionsByVenueId(venueId)
+            val edges = edgeDao.getEdgesByVenueId(venueId)
+            val events = eventDao.getEventsByVenueId(venueId)
             return@withTransaction SharedDataProto.newBuilder()
                 .setVenue(venue.toProto())
                 .addAllNode(nodes.map { it.toProto() })

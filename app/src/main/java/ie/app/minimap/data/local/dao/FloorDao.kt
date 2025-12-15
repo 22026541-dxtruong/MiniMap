@@ -29,6 +29,6 @@ interface FloorDao {
     fun getFloorsByBuildingId(buildingId: Long): Flow<List<Floor>>
 
     @Query("SELECT * FROM floors WHERE venue_id = :venueId ORDER BY level ASC")
-    fun getFloorsByVenueId(venueId: Long): Flow<List<Floor>>
+    fun getFloorsByVenueId(venueId: Long): List<Floor>
 
 }

@@ -23,8 +23,12 @@ class MapRepository @Inject constructor(
     private val floorConnectionDao: FloorConnectionDao
 ) {
 
-    fun getBuildingWithFloorsByBuildingId(id: Long): Flow<BuildingWithFloors> {
-        return buildingDao.getBuildingWithFloorsById(id)
+    fun getBuildingById(id: Long): Flow<Building> {
+        return buildingDao.getBuildingById(id)
+    }
+
+    fun getFloorsByBuildingId(buildingId: Long): Flow<List<Floor>> {
+        return floorDao.getFloorsByBuildingId(buildingId)
     }
 
     fun getFloorWithNodesAndEdgeByFloorId(id: Long): Flow<FloorWithNodesAndEdges> {

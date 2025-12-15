@@ -1,4 +1,4 @@
-package ie.app.minimap.ui.screens.qrscanner
+package ie.app.minimap.ui.qr
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -195,13 +195,17 @@ private fun CropContent(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Button(onClick = onCancel, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)) {
-                Icon(Icons.Default.Close, null); Spacer(Modifier.width(8.dp)); Text("Hủy")
+                Icon(Icons.Default.Close, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Cancel")
             }
             Button(onClick = {
                 val result = cropBitmapFinal(bitmap, cropRect, imageDisplayRect)
                 onCropSuccess(result)
             }, colors = ButtonDefaults.buttonColors(containerColor = Color.Green)) {
-                Icon(Icons.Default.Check, null); Spacer(Modifier.width(8.dp)); Text("Cắt")
+                Icon(Icons.Default.Check, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Scan")
             }
         }
     }

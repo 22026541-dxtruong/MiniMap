@@ -18,7 +18,7 @@ class VenueRepository @Inject constructor(
     private val database: AppDatabase
 ) {
 
-    fun getVenueById(id : Long): Flow<Venue> {
+    fun getVenueById(id : Long): Venue {
          return venueDao.getVenueById(id)
     }
 
