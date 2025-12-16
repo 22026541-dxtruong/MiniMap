@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+import ie.app.minimap.data.proto.FloorConnectionProto
 
 @Entity(
     tableName = "floor_connections",
@@ -48,19 +49,49 @@ import androidx.room.PrimaryKey
 data class FloorConnection(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    @ColumnInfo(name = "venue_id")
+    val venueId: Long = 0,
     @ColumnInfo(name = "building_id")
     val buildingId: Long = 0,
     @ColumnInfo(name = "from_floor")
     val fromFloor: Long = 0,
     @ColumnInfo(name = "from_node")
-    val fromNode: String = "",
+    val fromNode: Long = 0,
     @ColumnInfo(name = "to_floor")
     val toFloor: Long = 0,
     @ColumnInfo(name = "to_node")
-    val toNode: String = "",
+    val toNode: Long = 0,
     @ColumnInfo(name = "type")
     val type: String = "",
     val weight: Float = 0f,
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    constructor(proto: FloorConnectionProto) : this(
+        id = proto.id,
+        venueId = proto.venueId,
+        buildingId = proto.buildingId,
+        fromFloor = proto.fromFloor,
+        fromNode = proto.fromNode,
+        toFloor = proto.toFloor,
+        toNode = proto.toNode,
+        type = proto.type,
+        weight = proto.weight,
+        createdAt = proto.createdAt
+    )
+}
+
+fun FloorConnection.toProto(): FloorConnectionProto {
+    return FloorConnectionProto.newBuilder()
+        .setId(id)
+        .setVenueId(venueId)
+        .setBuildingId(buildingId)
+        .setFromFloor(fromFloor)
+        .setFromNode(fromNode)
+        .setToFloor(toFloor)
+        .setToNode(toNode)
+        .setType(type)
+        .setWeight(weight)
+        .setCreatedAt(createdAt)
+        .build()
+}

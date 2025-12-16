@@ -1,61 +1,91 @@
 package ie.app.minimap.di
 
-import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import ie.app.minimap.data.local.repository.EdgeRepository
+import ie.app.minimap.data.local.AppDatabase
+import ie.app.minimap.data.local.dao.BoothDao
+import ie.app.minimap.data.local.dao.BuildingDao
+import ie.app.minimap.data.local.dao.EdgeDao
+import ie.app.minimap.data.local.dao.EventDao
+import ie.app.minimap.data.local.dao.FloorConnectionDao
+import ie.app.minimap.data.local.dao.FloorDao
+import ie.app.minimap.data.local.dao.NodeDao
+import ie.app.minimap.data.local.dao.VendorDao
+import ie.app.minimap.data.local.dao.VenueDao
 import ie.app.minimap.data.local.repository.EventRepository
-import ie.app.minimap.data.local.repository.FloorConnectionRepository
-import ie.app.minimap.data.local.repository.FloorRepository
-import ie.app.minimap.data.local.repository.NodeRepository
+import ie.app.minimap.data.local.repository.InfoRepository
+import ie.app.minimap.data.local.repository.MapRepository
 import ie.app.minimap.data.local.repository.VenueRepository
-import ie.app.minimap.data.local.repository.impl.EdgeRepositoryImpl
-import ie.app.minimap.data.local.repository.impl.EventRepositoryImpl
-import ie.app.minimap.data.local.repository.impl.FloorConnectionRepositoryImpl
-import ie.app.minimap.data.local.repository.impl.FloorRepositoryImpl
-import ie.app.minimap.data.local.repository.impl.NodeRepositoryImpl
-import ie.app.minimap.data.local.repository.impl.VenueRepositoryImpl
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class RepositoryModule {
-    @Binds
-    @Singleton
-    abstract fun bindVenueRepository(
-        impl: VenueRepositoryImpl
-    ): VenueRepository
+object RepositoryModule {
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindNodeRepository(
-        impl: NodeRepositoryImpl
-    ): NodeRepository
+    fun provideMapRepository(
+        buildingDao: BuildingDao,
+        nodeDao: NodeDao,
+        edgeDao: EdgeDao,
+        floorDao: FloorDao,
+        floorConnectionDao: FloorConnectionDao
+    ): MapRepository = MapRepository(
+        buildingDao,
+        floorDao,
+        nodeDao,
+        edgeDao,
+        floorConnectionDao
+    )
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindFloorRepository(
-        impl: FloorRepositoryImpl
-    ): FloorRepository
+    fun provideVenueRepository(
+        venueDao: VenueDao,
+        buildingDao: BuildingDao,
+        floorDao: FloorDao,
+        database: AppDatabase
+    ): VenueRepository = VenueRepository(
+        venueDao,
+        buildingDao,
+        floorDao,
+        database
+    )
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindEdgeRepository(
-        impl: EdgeRepositoryImpl
-    ): EdgeRepository
+    fun provideEventRepository(
+        eventDao: EventDao,
+        boothDao: BoothDao,
+        buildingDao: BuildingDao
+    ): EventRepository = EventRepository(eventDao, boothDao, buildingDao)
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindFloorConnectionRepository(
-        impl: FloorConnectionRepositoryImpl
-    ): FloorConnectionRepository
-
-    @Binds
-    @Singleton
-    abstract fun bindEventRepository(
-        impl: EventRepositoryImpl
-    ): EventRepository
-
+    fun provideInfoRepository(
+        db: AppDatabase,
+        vendorDao: VendorDao,
+        boothDao: BoothDao,
+        nodeDao: NodeDao,
+        eventDao: EventDao,
+        buildingDao: BuildingDao,
+        floorDao: FloorDao,
+        floorConnectionDao: FloorConnectionDao,
+        edgeDao: EdgeDao,
+        venueDao: VenueDao
+    ): InfoRepository = InfoRepository(
+        db,
+        venueDao,
+        vendorDao,
+        boothDao,
+        nodeDao,
+        buildingDao,
+        floorDao,
+        floorConnectionDao,
+        edgeDao,
+        eventDao
+    )
 
 }

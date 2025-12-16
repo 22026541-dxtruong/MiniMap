@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+option java_package = "ie.app.minimap.data.proto";
+option java_multiple_files = true;
+
+message VenueProto {
+  int64 id = 1;
+  string name = 2;
+  string address = 3;
+  string description = 4;
+  int64 created_at = 5;
+}

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option java_package = "ie.app.minimap.data.proto";
+option java_multiple_files = true;
+
+// Node
+message NodeProto {
+  int64 id = 1;
+  int64 venue_id = 2;
+  int64 floor_id = 3;
+  string type = 4;
+  float x = 5;
+  float y = 6;
+  string label = 7;
+  string cloud_anchor_id = 8;
+  int64 created_at = 9;
+}

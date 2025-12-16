@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option java_package = "ie.app.minimap.data.proto";
+option java_multiple_files = true;
+
+message EventProto {
+  int64 id = 1;
+  int64 booth_id = 2;
+  int64 venue_id = 3;
+  string name = 4;
+  string description = 5;
+  string start_time = 6;
+  string end_time = 7;
+  string category = 8;
+  string img_url = 9;
+  int64 created_at = 10;
+}

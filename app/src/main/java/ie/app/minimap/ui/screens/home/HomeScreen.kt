@@ -1,15 +1,23 @@
 package ie.app.minimap.ui.screens.home
 
+import android.annotation.SuppressLint
+import android.graphics.Bitmap
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ElevatedCard
@@ -22,6 +30,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
@@ -37,34 +47,49 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import ie.app.minimap.R
+import ie.app.minimap.data.local.entity.Venue
 import kotlinx.coroutines.launch
 
 //@Preview(showSystemUi = true)
 @Composable
 fun HomeScreen(
     onClickVenue: (Long) -> Unit,
+    onQrScanClicked: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var isOpenDialog by remember { mutableStateOf(false) }
+    var editingVenue by remember { mutableStateOf<Venue?>(null) }
     val uiState by viewModel.uiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     if (isOpenDialog) {
-        AddVenueDialog(
+        VenueDialog(
+            idVenue = editingVenue?.id ?: 0,
+            nameVenue = editingVenue?.name ?: "",
+            addressVenue = editingVenue?.address ?: "",
+            descriptionVenue = editingVenue?.description ?: "",
             onDismiss = { isOpenDialog = false },
             onSave = { name, address, description ->
-                isOpenDialog = false
                 coroutineScope.launch {
                     val newVenue = viewModel.createVenue(name, address, description)
                     onClickVenue(newVenue?.id ?: 0)
                 }
+            },
+            onUpdateVenue = { id, name, address, description ->
+                // UPDATE
+                viewModel.updateVenue(Venue(id, name, address, description))
             }
         )
     }
@@ -72,22 +97,28 @@ fun HomeScreen(
         topBar = {
             HomeTopBar(
                 onSearchClicked = {},
-                onQrScanClicked = {}
+                onQrScanClicked = onQrScanClicked
             )
         },
         floatingActionButton = {
-            AddVenueFAB(onClick = { isOpenDialog = true })
+            AddVenueFAB(onClick = {
+                editingVenue = null      // null = create mode
+                isOpenDialog = true
+            })
         },
         modifier = modifier
     ) { innerPadding ->
 
-        Box(Modifier.fillMaxSize().padding(innerPadding)) {
+        Box(Modifier
+            .fillMaxSize()
+            .padding(innerPadding)) {
 
             // --- Nội dung chính ---
             when {
                 uiState.venues.isEmpty() && !uiState.isLoading && uiState.error == null -> {
                     Box(
-                        Modifier.fillMaxSize(),
+                        Modifier.fillMaxSize()
+                            .padding(innerPadding),
                         contentAlignment = Alignment.TopCenter
                     ) {
                         Text("Chưa có địa điểm nào")
@@ -101,13 +132,26 @@ fun HomeScreen(
                             .padding(top = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        items(uiState.venues, key = { it.id }) { venue ->
+                        items(uiState.venues.toList(), key = { it.first }) { venue ->
                             VenueCard(
-                                id = venue.id,
-                                name = venue.name,
-                                address = venue.address,
-                                description = venue.description,
-                                onClick = { onClickVenue(venue.id) }
+                                bitmap = viewModel.generateQrCode(context, venue.first),
+                                name = venue.second.name,
+                                address = venue.second.address,
+                                description = venue.second.description,
+                                onClick = { onClickVenue(venue.second.id) },
+                                onEdit = {
+                                    editingVenue = venue.second
+                                    isOpenDialog = true
+                                },
+                                onShareImage = {
+                                    viewModel.shareImage(
+                                        context = context,
+                                        bitmap = viewModel.generateQrCode(context, venue.first)
+                                    )
+                                },
+                                onDelete = {
+                                    viewModel.deleteVenue(venue.second)
+                                }
                             )
                         }
                     }
@@ -194,16 +238,68 @@ fun HomeTopBar(
     )
 }
 
+@Preview
 @Composable
 fun VenueCard(
-    id: Long = 0,
-    name: String = "Annual Gala Dinner",
+    bitmap: Bitmap? = null,
+    name: String = "Annual Gala Dinneraweferfregregregwegr",
     address: String = "Some address",
     description: String = "A description of the venue",
     state: String = "Draft", // Published, Draft, Archived
-    onClick: (Long) -> Unit = {},
+    onClick: () -> Unit = {},
+    onDelete: () -> Unit = {},
+    onEdit: () -> Unit = {},
+    onShareImage: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    var expanded by remember { mutableStateOf(false) }
+    var openDialog by remember { mutableStateOf(false) }
+
+    if (bitmap != null && openDialog) {
+        Dialog(onDismissRequest = { openDialog = false }) {
+            Surface(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .padding(24.dp),
+                shape = MaterialTheme.shapes.large,
+                tonalElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = "Qr Code",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        TextButton(onClick = { openDialog = false }) {
+                            Text("Cancel")
+                        }
+                        TextButton(onClick = {
+                            onShareImage()
+                            openDialog = false
+                        }) {
+                            Text("Share")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     ElevatedCard(
         modifier = modifier
             .padding(horizontal = 16.dp),
@@ -212,74 +308,144 @@ fun VenueCard(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        onClick = { onClick(id) }
+        onClick = { expanded = !expanded }
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Box(
+        Column {
+            Row(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(MaterialTheme.colorScheme.primary)
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.outline_calendar_month_24),
-                    contentDescription = "Date",
-                    tint = MaterialTheme.colorScheme.onPrimary,
+                Box(
                     modifier = Modifier
-                        .size(24.dp)
-                        .align(Alignment.Center)
+                        .size(48.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable(onClick = { openDialog = if (bitmap != null) true else false })
+                ) {
+                    if (bitmap == null) {
+                        Icon(
+                            painter = painterResource(R.drawable.outline_calendar_month_24),
+                            contentDescription = "Date",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .align(Alignment.Center)
+                        )
+                    } else {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Qr Code",
+                            modifier = Modifier
+                                .size(24.dp)
+                                .align(Alignment.Center)
+                        )
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleMedium,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    )
+                    Text(
+                        text = address,
+                        style = MaterialTheme.typography.bodyMedium,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 2,
+                    )
+                }
+
+                FilterChip(
+                    selected = true,
+                    onClick = {},
+                    label = {
+                        Text(
+                            "Published",
+                            textAlign = TextAlign.Center,
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
                 )
             }
-
-            // Texts
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(text = name, style = MaterialTheme.typography.titleMedium)
-                Text(text = address, style = MaterialTheme.typography.bodyMedium)
-                Text(text = description, style = MaterialTheme.typography.bodySmall)
-            }
-
-            // State chip
-            val isDraft = state == "Draft"
-
-            Text(
-                text = state,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isDraft)
-                    MaterialTheme.colorScheme.primary
-                else
-                    MaterialTheme.colorScheme.secondary,
+            AnimatedVisibility(
+                visible = expanded,
                 modifier = Modifier
-                    .clip(MaterialTheme.shapes.small)
-                    .background(
-                        if (isDraft)
-                            MaterialTheme.colorScheme.background
-                        else
-                            MaterialTheme.colorScheme.secondaryContainer
-                    )
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            )
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(text = description, style = MaterialTheme.typography.bodyMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround
+                    ) {
+                        AssistChip(
+                            onClick = onEdit,
+                            label = { Text("Edit") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit"
+                                )
+                            }
+                        )
+                        AssistChip(
+                            onClick = onDelete,
+                            label = { Text("Delete") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete"
+                                )
+                            },
+                        )
+                        AssistChip(
+                            onClick = onClick,
+                            label = { Text("Go") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.ExitToApp,
+                                    contentDescription = "Exit"
+                                )
+                            }
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
-@Preview
+//@Preview
 @Composable
-fun AddVenueDialog(
+fun VenueDialog(
+    idVenue: Long = 0,
+    nameVenue: String = "",
+    addressVenue: String = "",
+    descriptionVenue: String = "",
     onDismiss: () -> Unit = {},
+    onUpdateVenue: (id: Long, name: String, address: String, description: String) -> Unit = { _, _, _, _ -> },
     onSave: (name: String, address: String, description: String) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
-    var name by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(nameVenue) }
+    var address by remember { mutableStateOf(addressVenue) }
+    var description by remember { mutableStateOf(descriptionVenue) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -298,7 +464,7 @@ fun AddVenueDialog(
             ) {
                 // Title
                 Text(
-                    text = "Add New Venue",
+                    text = "Venue",
                     style = MaterialTheme.typography.headlineSmall
                 )
 
@@ -353,7 +519,11 @@ fun AddVenueDialog(
                     }
                     Button(
                         onClick = {
-                            onSave(name, address, description)
+                            if (idVenue == 0L) {
+                                onSave(name, address, description)   // CREATE
+                            } else {
+                                onUpdateVenue(idVenue, name, address, description) // EDIT
+                            }
                             onDismiss()
                         },
                         enabled = name.isNotBlank() && address.isNotBlank()

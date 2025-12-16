@@ -44,6 +44,18 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideEventDao(db: AppDatabase) = db.EventDao()
+    fun provideEventDao(db: AppDatabase) = db.eventDao()
+
+    @Provides
+    @Singleton
+    fun provideBuildingDao(db: AppDatabase) = db.buildingDao()
+
+    @Provides
+    @Singleton
+    fun provideVendorDao(db: AppDatabase) = db.vendorDao()
+
+    @Provides
+    @Singleton
+    fun provideBoothDao(db: AppDatabase) = db.boothDao()
 
 }
