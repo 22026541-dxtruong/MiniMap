@@ -30,7 +30,7 @@ import ie.app.minimap.data.local.entity.Venue
     Edge::class,
     Booth::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun nodeDao(): NodeDao
