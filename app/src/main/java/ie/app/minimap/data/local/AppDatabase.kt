@@ -9,6 +9,7 @@ import ie.app.minimap.data.local.dao.EventDao
 import ie.app.minimap.data.local.dao.FloorConnectionDao
 import ie.app.minimap.data.local.dao.FloorDao
 import ie.app.minimap.data.local.dao.NodeDao
+import ie.app.minimap.data.local.dao.ShapeDao
 import ie.app.minimap.data.local.dao.VendorDao
 import ie.app.minimap.data.local.dao.VenueDao
 import ie.app.minimap.data.local.entity.Booth
@@ -18,6 +19,7 @@ import ie.app.minimap.data.local.entity.Event
 import ie.app.minimap.data.local.entity.Floor
 import ie.app.minimap.data.local.entity.FloorConnection
 import ie.app.minimap.data.local.entity.Node
+import ie.app.minimap.data.local.entity.Shape
 import ie.app.minimap.data.local.entity.Vendor
 import ie.app.minimap.data.local.entity.Venue
 
@@ -31,9 +33,10 @@ import ie.app.minimap.data.local.entity.Venue
     Building::class,
     Event::class,
     Edge::class,
-    Booth::class
+    Booth::class,
+    Shape::class
     ],
-    version = 2,
+    version = 1,
     exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun nodeDao(): NodeDao
@@ -45,5 +48,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun buildingDao() : BuildingDao
     abstract fun boothDao() : BoothDao
     abstract fun vendorDao() : VendorDao
+    abstract fun shapeDao() : ShapeDao
 
 }

@@ -10,10 +10,11 @@ data class FloorWithNodesAndEdges(
     @Embedded
     val floor: Floor,
     @Relation(
+        entity = Node::class,
         parentColumn = "id",
         entityColumn = "floor_id"
     )
-    val nodes: List<Node> = emptyList(),
+    val nodeWithShapes: List<NodeWithShape> = emptyList(),
     @Relation(
         parentColumn = "id",
         entityColumn = "floor_id"

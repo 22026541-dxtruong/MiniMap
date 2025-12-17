@@ -9,6 +9,7 @@ import ie.app.minimap.data.local.dao.EventDao
 import ie.app.minimap.data.local.dao.FloorConnectionDao
 import ie.app.minimap.data.local.dao.FloorDao
 import ie.app.minimap.data.local.dao.NodeDao
+import ie.app.minimap.data.local.dao.ShapeDao
 import ie.app.minimap.data.local.dao.VendorDao
 import ie.app.minimap.data.local.dao.VenueDao
 import ie.app.minimap.data.local.entity.Booth
@@ -35,10 +36,13 @@ class InfoRepository @Inject constructor(
     private val floorDao: FloorDao,
     private val floorConnectionDao: FloorConnectionDao,
     private val edgeDao: EdgeDao,
-    private val eventDao: EventDao
+    private val eventDao: EventDao,
+    private val shapeDao: ShapeDao
 ) {
 
-    fun getNodesByLabel(label: String, floorId: Long) = nodeDao.getNodesByLabel(label, floorId)
+    fun getShapesByLabel(label: String, floorId: Long) = nodeDao.getShapesByLabel(label, floorId)
+
+    suspend fun getBoothWithVendorByNodeId(nodeId: Long) = boothDao.getBoothWithVendorByNodeId(nodeId)
 
     suspend fun upsertVendor(vendor: Vendor): Long {
         return vendorDao.upsert(vendor)

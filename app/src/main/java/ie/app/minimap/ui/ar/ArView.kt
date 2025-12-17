@@ -312,6 +312,7 @@ fun AddAnchorDialog(
         Node.INTERSECTION,
         Node.BOOTH,
         Node.CONNECTOR,
+        Node.HALLWAY
     )
 
     Dialog(

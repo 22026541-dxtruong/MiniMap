@@ -23,6 +23,7 @@ import com.google.ar.sceneform.ux.TransformableNode
 import com.google.ar.sceneform.ux.TransformationSystem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import ie.app.minimap.data.local.entity.*
+import ie.app.minimap.data.local.entity.Shape
 import ie.app.minimap.data.local.repository.InfoRepository
 import ie.app.minimap.data.local.repository.MapRepository
 import kotlinx.coroutines.Dispatchers
@@ -94,20 +95,32 @@ class ArViewModel @Inject constructor(
             try {
                 Log.d(TAG, "Bắt đầu tải Model 3D...")
                 _uiState.update { it.copy(loading = true) }
-                val materialRed = MaterialFactory.makeOpaqueWithColor(application, Color(android.graphics.Color.RED)).await()
-                val materialBlue = MaterialFactory.makeOpaqueWithColor(application, Color(android.graphics.Color.BLUE)).await()
+                val materialRed = MaterialFactory.makeOpaqueWithColor(
+                    application,
+                    Color(android.graphics.Color.RED)
+                ).await()
+                val materialBlue = MaterialFactory.makeOpaqueWithColor(
+                    application,
+                    Color(android.graphics.Color.BLUE)
+                ).await()
 
-                modelRenderable = ShapeFactory.makeCube(Vector3(0.1f, 0.1f, 0.1f), Vector3(0.0f, 0.05f, 0.0f), materialRed)
+                modelRenderable = ShapeFactory.makeCube(
+                    Vector3(0.1f, 0.1f, 0.1f),
+                    Vector3(0.0f, 0.05f, 0.0f),
+                    materialRed
+                )
                 pathRenderable = ShapeFactory.makeSphere(0.05f, Vector3.zero(), materialBlue)
 
                 Log.d(TAG, "Tải Model 3D thành công!")
                 _uiState.update { it.copy(loading = false) }
             } catch (e: Exception) {
                 Log.e(TAG, "Lỗi tải Model 3D: ${e.message}")
-                _uiState.update { it.copy(
-                    error = "Không thể tải mô hình 3D: ${e.message}",
-                    message = "Lỗi tải tài nguyên 3D"
-                ) }
+                _uiState.update {
+                    it.copy(
+                        error = "Không thể tải mô hình 3D: ${e.message}",
+                        message = "Lỗi tải tài nguyên 3D"
+                    )
+                }
             }
         }
     }
@@ -174,7 +187,12 @@ class ArViewModel @Inject constructor(
         Log.d(TAG, "OnResume")
         if (_uiState.value.transformationSystem == null) {
             _uiState.update {
-                it.copy(transformationSystem = TransformationSystem(context.resources.displayMetrics, FootprintSelectionVisualizer()))
+                it.copy(
+                    transformationSystem = TransformationSystem(
+                        context.resources.displayMetrics,
+                        FootprintSelectionVisualizer()
+                    )
+                )
             }
         }
 
@@ -185,10 +203,12 @@ class ArViewModel @Inject constructor(
             Log.d(TAG, "AR Session Resumed")
         } catch (e: Exception) {
             Log.e(TAG, "Lỗi OnResume: ${e.message}")
-            _uiState.update { it.copy(
-                error = e.message ?: "Lỗi AR",
-                message = "Không thể khởi động Camera AR. Hãy kiểm tra quyền truy cập."
-            ) }
+            _uiState.update {
+                it.copy(
+                    error = e.message ?: "Lỗi AR",
+                    message = "Không thể khởi động Camera AR. Hãy kiểm tra quyền truy cập."
+                )
+            }
         }
     }
 
@@ -218,8 +238,8 @@ class ArViewModel @Inject constructor(
                     val node = allNodes.find { it.id == nodeId }
                     if (node != null) {
                         referenceAnchorPose = node.cloudAnchorId to anchor.pose
-                        Log.i(TAG, "🎯 ĐÃ KHÓA MỐC (TRACKING): ${node.label}")
-                        showMessage("Đã định vị theo: ${node.label}")
+//                        Log.i(TAG, "🎯 ĐÃ KHÓA MỐC (TRACKING): ${node.label}")
+//                        showMessage("Đã định vị theo: ${node.label}")
                         updateLocalizationState()
 
                         // Break ngay để lấy cái đầu tiên track được
@@ -281,7 +301,7 @@ class ArViewModel @Inject constructor(
 
         val rotatingNodes = allNodes.subList(startIndex, endIndex)
         val landmarkNodes = allNodes.filter {
-            it.type == Node.CONNECTOR || it.type == Node.INTERSECTION || it.label.contains("Entrance", true)
+            it.type == Node.CONNECTOR || it.type == Node.INTERSECTION
         }.take(5)
 
         val nodesToScan = (rotatingNodes + landmarkNodes).distinctBy { it.id }
@@ -303,7 +323,7 @@ class ArViewModel @Inject constructor(
             session.resolveCloudAnchorAsync(node.cloudAnchorId) { anchor, state ->
                 when (state) {
                     Anchor.CloudAnchorState.SUCCESS -> {
-                        Log.i(TAG, "✅ THÀNH CÔNG: ${node.label}")
+//                        Log.i(TAG, "✅ THÀNH CÔNG: ${node.label}")
                         resolvingNodeIds.remove(node.id)
                         resolvedNodeIds.add(node.id)
                         nodesAndAnchor[node.id] = anchor
@@ -313,12 +333,14 @@ class ArViewModel @Inject constructor(
                             placeObject(arSceneView, anchor, modelRenderable!!, system)
                         }
                     }
-                    Anchor.CloudAnchorState.TASK_IN_PROGRESS -> { }
+
+                    Anchor.CloudAnchorState.TASK_IN_PROGRESS -> {}
                     Anchor.CloudAnchorState.ERROR_CLOUD_ID_NOT_FOUND -> {
-                        Log.e(TAG, "❌ ID không tồn tại: ${node.label}")
+//                        Log.e(TAG, "❌ ID không tồn tại: ${node.label}")
                         // showMessage("Lỗi dữ liệu: Không tìm thấy ID của ${node.label}")
                         resolvingNodeIds.remove(node.id)
                     }
+
                     else -> {
                         resolvingNodeIds.remove(node.id)
                     }
@@ -341,9 +363,11 @@ class ArViewModel @Inject constructor(
     }
 
     private fun distance(x1: Float, y1: Float, z1: Float, x2: Float, y2: Float, z2: Float): Float =
-        kotlin.math.sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2) + (z1-z2)*(z1-z2))
+        kotlin.math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2))
 
-    fun onPause(arSceneView: ArSceneView) { arSceneView.pause() }
+    fun onPause(arSceneView: ArSceneView) {
+        arSceneView.pause()
+    }
 
     fun onDestroy(arSceneView: ArSceneView) {
         arSceneView.pause()
@@ -353,7 +377,8 @@ class ArViewModel @Inject constructor(
         _uiState.update { it.copy(transformationSystem = null) }
     }
 
-    fun worldToCanvas(x: Float, y: Float, scaleFactor: Float = 150f) = Offset(x * scaleFactor, y * scaleFactor)
+    fun worldToCanvas(x: Float, y: Float, scaleFactor: Float = 150f) =
+        Offset(x * scaleFactor, y * scaleFactor)
 
     // Sửa tham số đầu vào: Nhận Pose thay vì Float rời rạc
     fun updateUserLocationFromWorld(cameraPose: Pose): Offset? {
@@ -419,23 +444,24 @@ class ArViewModel @Inject constructor(
                     // --- THÀNH CÔNG ---
                     val pos = worldToCanvas(pose.tx(), pose.tz())
                     val newNode = Node(
+                        venueId = venueId,
                         floorId = floor.id,
                         x = pos.x,
                         y = pos.y,
-                        label = name ?: "Node ${cloudId.take(4)}",
+//                        label = name ?: "Node ${cloudId.take(4)}",
                         type = type,
                         cloudAnchorId = cloudId
                     )
 
                     // Lưu DB
                     val nodeId = mapRepository.upsertNode(newNode)
-                    val savedNode = newNode.copy(id = nodeId)
 
                     when (type) {
                         Node.BOOTH -> {
                             val vendorId = if (vendorName != null && vendorDescription != null) {
                                 // Đảm bảo vendor được insert thành công trước khi lấy ID
                                 val newVendor = Vendor(
+                                    venueId = venueId,
                                     name = vendorName,
                                     description = vendorDescription
                                 )
@@ -444,9 +470,22 @@ class ArViewModel @Inject constructor(
                                 insertedVendorId // Trả về vendorId hợp lệ
                             } else 0
                             if (name != null && description != null) {
+                                val shapeId = mapRepository.upsertShape(
+                                    Shape(
+                                        nodeId = nodeId,
+                                        centerX = pos.x,
+                                        centerY = pos.y,
+                                        width = 120f,
+                                        height = 80f,
+                                        label = name,
+                                        shape = Shape.Companion.ShapeType.RECTANGLE,
+                                        color = 0xFF3B82F6
+                                    )
+                                )
                                 infoRepository.upsertBooth(
                                     Booth(
                                         nodeId = nodeId,
+                                        shapeId = shapeId,
                                         vendorId = vendorId,
                                         floorId = floor.id,
                                         buildingId = building.id,
@@ -456,6 +495,22 @@ class ArViewModel @Inject constructor(
                                     )
                                 )
                             }
+                        }
+
+                        Node.ROOM -> {
+                            if (name != null)
+                                mapRepository.upsertShape(
+                                    Shape(
+                                        nodeId = nodeId,
+                                        centerX = pos.x,
+                                        centerY = pos.y,
+                                        width = 120f,
+                                        height = 80f,
+                                        label = name,
+                                        shape = Shape.Companion.ShapeType.RECTANGLE,
+                                        color = 0xFF3B82F6
+                                    )
+                                )
                         }
                     }
 
@@ -470,19 +525,23 @@ class ArViewModel @Inject constructor(
                         }
 
                         // TẮT LOADING + THÔNG BÁO THÀNH CÔNG
-                        _uiState.update { it.copy(
-                            loading = false,
-                            message = "✅ Đã lưu thành công!" // Message này sẽ hiện lên Snackbar
-                        ) }
+                        _uiState.update {
+                            it.copy(
+                                loading = false,
+                                message = "✅ Đã lưu thành công!" // Message này sẽ hiện lên Snackbar
+                            )
+                        }
                     }
                 } else {
                     // --- THẤT BẠI KHI HOST ---
                     withContext(Dispatchers.Main) {
                         localAnchor.detach() // Xóa vật thể ảo
-                        _uiState.update { it.copy(
-                            loading = false,
-                            message = "❌ Không thể lưu lên Cloud. Hãy thử lại."
-                        ) }
+                        _uiState.update {
+                            it.copy(
+                                loading = false,
+                                message = "❌ Không thể lưu lên Cloud. Hãy thử lại."
+                            )
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -490,11 +549,13 @@ class ArViewModel @Inject constructor(
                 Log.e(TAG, "Lỗi onSceneTouched: ${e.message}")
                 withContext(Dispatchers.Main) {
                     localAnchor.detach()
-                    _uiState.update { it.copy(
-                        loading = false,
-                        error = null, // Đừng set error ở đây kẻo nó hiện màn hình đỏ chết chóc
-                        message = "Lỗi: ${e.message}" // Hiện snackbar thôi
-                    ) }
+                    _uiState.update {
+                        it.copy(
+                            loading = false,
+                            error = null, // Đừng set error ở đây kẻo nó hiện màn hình đỏ chết chóc
+                            message = "Lỗi: ${e.message}" // Hiện snackbar thôi
+                        )
+                    }
                 }
             }
         }
@@ -535,7 +596,12 @@ class ArViewModel @Inject constructor(
         }
     }
 
-    private fun placeObject(arSceneView: ArSceneView, anchor: Anchor, model: ModelRenderable, transformationSystem: TransformationSystem) {
+    private fun placeObject(
+        arSceneView: ArSceneView,
+        anchor: Anchor,
+        model: ModelRenderable,
+        transformationSystem: TransformationSystem
+    ) {
         val anchorNode = AnchorNode(anchor)
         anchorNode.setParent(arSceneView.scene)
         val modelNode = TransformableNode(transformationSystem)
@@ -565,7 +631,8 @@ class ArViewModel @Inject constructor(
 
             if (anchorFirst != null) {
                 val camPos = Vector3(cameraPose.tx(), anchorFirst.pose.ty(), cameraPose.tz())
-                val firstNodePos = Vector3(anchorFirst.pose.tx(), anchorFirst.pose.ty(), anchorFirst.pose.tz())
+                val firstNodePos =
+                    Vector3(anchorFirst.pose.tx(), anchorFirst.pose.ty(), anchorFirst.pose.tz())
                 drawLine(arSceneView, camPos, firstNodePos)
 
                 // showMessage("Bắt đầu dẫn đường...")
@@ -581,7 +648,8 @@ class ArViewModel @Inject constructor(
                 val startAnchor = nodesAndAnchor[nodeStart.id]
                 val endAnchor = nodesAndAnchor[nodeEnd.id]
                 if (startAnchor != null && endAnchor != null) {
-                    val p1 = Vector3(startAnchor.pose.tx(), startAnchor.pose.ty(), startAnchor.pose.tz())
+                    val p1 =
+                        Vector3(startAnchor.pose.tx(), startAnchor.pose.ty(), startAnchor.pose.tz())
                     val p2 = Vector3(endAnchor.pose.tx(), endAnchor.pose.ty(), endAnchor.pose.tz())
                     drawLine(arSceneView, p1, p2)
                 }

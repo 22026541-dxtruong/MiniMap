@@ -59,6 +59,8 @@ data class Booth(
     val floorId: Long = 0,
     @ColumnInfo(name = "node_id")
     val nodeId: Long = 0,
+    @ColumnInfo(name = "shape_id")
+    val shapeId: Long = 0,
     val name: String = "",
     val description: String = "",
     val category: String = "",
