@@ -52,6 +52,7 @@ import ie.app.minimap.ui.theme.MiniMapTheme
 import ie.app.minimap.ui.theme.PrimaryColor
 import ie.app.minimap.ui.theme.Red500
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import ie.app.minimap.data.local.entity.Venue
 
 // Dữ liệu giả định
 data class Event(
@@ -62,22 +63,52 @@ data class Event(
     val imageUrl: Int // Dùng Resource ID tạm thời
 )
 
+fun Venue.toEvent(isLiveEvent: Boolean = false, imageId: Int = R.drawable.event_live): Event {
+    return Event(
+        title = this.name,
+        time = "Chưa xác định thời gian", // Placeholder vì Venue thiếu trường này
+        location = this.address,
+        isLive = isLiveEvent, // Giá trị mặc định hoặc được truyền vào
+        imageUrl = imageId // Giá trị mặc định hoặc được truyền vào
+    )
+}
+
 @Composable
 fun EventListScreen(
 
-//    viewModel: EventListViewModel = hiltViewModel()
+    viewModel: EventListViewModel = hiltViewModel()
 ) {
-//    val venues by viewModel.venues.collectAsState()
+    val venues by viewModel.venues.collectAsState()
 
     // Dữ liệu giả định
-    val liveEvents = listOf(
-        Event("Hội thảo Tech Summit 2024", "14:00 - 25/12/2024", "Tòa nhà A, Tầng 3", true,R.drawable.event_live) // Thêm ID tài nguyên giả định
-    )
-    val upcomingEvents = listOf(
-        Event("Workshop Thiết kế Giao diện AR", "09:00 - 28/12/2024", "Tòa nhà B, Tầng 5", false,R.drawable.event_live),
-        Event("Gala Dinner cuối năm", "18:00 - 31/12/2024", "Tòa nhà C, Sảnh chính", false,R.drawable.event_live)
-    )
-    val showNoResults = false // Đặt thành true để xem màn hình rỗng
+//    val liveEvents = listOf(
+//        Event("Hội thảo Tech Summit 2024", "14:00 - 25/12/2024", "Tòa nhà A, Tầng 3", true,R.drawable.event_live) // Thêm ID tài nguyên giả định
+//    )
+//    val upcomingEvents = listOf(
+//        Event("Workshop Thiết kế Giao diện AR", "09:00 - 28/12/2024", "Tòa nhà B, Tầng 5", false,R.drawable.event_live),
+//        Event("Gala Dinner cuối năm", "18:00 - 31/12/2024", "Tòa nhà C, Sảnh chính", false,R.drawable.event_live)
+//    )
+
+    val allEvents = venues.map { venue ->
+        venue.toEvent(isLiveEvent = false, imageId = R.drawable.event_live)
+    }
+
+    // Giả định: Event đầu tiên là Live, các Event còn lại là Upcoming
+    val liveEvents = if (allEvents.isNotEmpty()) {
+        // Lấy Event đầu tiên và tạo bản sao với isLive = true
+        listOf(allEvents.first().copy(isLive = true, time = "ĐANG DIỄN RA"))
+    } else {
+        emptyList()
+    }
+
+    val upcomingEvents = if (allEvents.size > 1) {
+        // Loại bỏ Event đầu tiên
+        allEvents.drop(1)
+    } else {
+        emptyList()
+    }
+
+    val showNoResults = liveEvents.isEmpty() && upcomingEvents.isEmpty()
 
 
 
