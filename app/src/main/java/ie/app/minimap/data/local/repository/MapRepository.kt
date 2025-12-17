@@ -5,11 +5,13 @@ import ie.app.minimap.data.local.dao.EdgeDao
 import ie.app.minimap.data.local.dao.FloorConnectionDao
 import ie.app.minimap.data.local.dao.FloorDao
 import ie.app.minimap.data.local.dao.NodeDao
+import ie.app.minimap.data.local.dao.ShapeDao
 import ie.app.minimap.data.local.entity.Building
 import ie.app.minimap.data.local.entity.Edge
 import ie.app.minimap.data.local.entity.Floor
 import ie.app.minimap.data.local.entity.FloorConnection
 import ie.app.minimap.data.local.entity.Node
+import ie.app.minimap.data.local.entity.Shape
 import ie.app.minimap.data.local.relations.BuildingWithFloors
 import ie.app.minimap.data.local.relations.FloorWithNodesAndEdges
 import kotlinx.coroutines.flow.Flow
@@ -20,7 +22,8 @@ class MapRepository @Inject constructor(
     private val floorDao: FloorDao,
     private val nodeDao: NodeDao,
     private val edgeDao: EdgeDao,
-    private val floorConnectionDao: FloorConnectionDao
+    private val floorConnectionDao: FloorConnectionDao,
+    private val shapeDao: ShapeDao
 ) {
 
     fun getBuildingById(id: Long): Flow<Building> {
@@ -53,6 +56,14 @@ class MapRepository @Inject constructor(
 
     suspend fun deleteNode(node: Node) {
         nodeDao.delete(node)
+    }
+
+    suspend fun upsertShape(shape: Shape): Long {
+        return shapeDao.upsert(shape)
+    }
+
+    suspend fun deleteShape(shape: Shape) {
+        shapeDao.delete(shape)
     }
 
     suspend fun deleteEdgesByNodeId(nodeId: Long) {

@@ -2,8 +2,6 @@ package ie.app.minimap.ui.screens.map
 
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.PointerInputChange
-import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,6 +9,8 @@ import ie.app.minimap.data.local.entity.Building
 import ie.app.minimap.data.local.entity.Edge
 import ie.app.minimap.data.local.entity.Floor
 import ie.app.minimap.data.local.entity.Node
+import ie.app.minimap.data.local.relations.BoothWithVendor
+import ie.app.minimap.data.local.relations.NodeWithShape
 import ie.app.minimap.data.local.repository.InfoRepository
 import ie.app.minimap.data.local.repository.MapRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,31 +30,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.PriorityQueue
 import javax.inject.Inject
-import kotlin.math.cos
+import kotlin.collections.filter
+import kotlin.collections.forEach
+import kotlin.collections.map
 import kotlin.math.hypot
-import kotlin.math.pow
-import kotlin.math.sin
 
-/**
- * Trạng thái khi đang kéo một cạnh mới.
- * @param startNode Nút bắt đầu kéo.
- * @param currentPosition Vị trí hiện tại của ngón tay.
- * @param snapTargetNode Nút mục tiêu có thể "dính" vào (nếu có).
- */
-data class DraggingState(
-    val startNode: Node,
-    val currentPosition: Offset,
-    val snapTargetNode: Node? = null
-)
-
-// Trạng thái lựa chọn
-sealed class Selection {
-    data object None : Selection()
-    data class NodeSelected(val node: Node) : Selection()
-    data class EdgeSelected(val edge: Edge) : Selection()
-}
-
-data class MapUiState(
+data class MapEditorUiState(
     val selectedBuilding: Building = Building(),
     val selectedFloor: Floor = Floor(),
     val isLoading: Boolean = false,
@@ -66,77 +47,25 @@ class MapViewModel @Inject constructor(
     private val mapRepository: MapRepository,
     private val infoRepository: InfoRepository
 ) : ViewModel() {
-    companion object {
-        const val SNAP_THRESHOLD = 80f // Dính khi cách tâm nút 80px
-        const val EDGE_TAP_THRESHOLD = 20f // Độ nhạy khi chạm vào cạnh
-        const val RADIUS = 60f // Bán kính nút
-    }
-
-    private val _uiState = MutableStateFlow(MapUiState(isLoading = true))
-    val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
-
-    private val _userPosition = MutableStateFlow<Offset?>(null)
-    val userPosition: StateFlow<Offset?> = _userPosition.asStateFlow()
-
-    private val _pathOffsetAndNode = MutableStateFlow<Pair<List<Offset>, List<Node>>?>(null)
-    val pathOffsetAndNode: StateFlow<Pair<List<Offset>, List<Node>>?> = _pathOffsetAndNode.asStateFlow()
-
+    private val _uiState = MutableStateFlow(MapEditorUiState(isLoading = true))
+    val uiState: StateFlow<MapEditorUiState> = _uiState.asStateFlow()
     private val _buildings = MutableStateFlow<List<Building>>(emptyList())
     val buildings: StateFlow<List<Building>> = _buildings.asStateFlow()
     private val _floors = MutableStateFlow<List<Floor>>(emptyList())
     val floors: StateFlow<List<Floor>> = _floors.asStateFlow()
-
     private val _nodes = MutableStateFlow<List<Node>>(emptyList())
     val nodes: StateFlow<List<Node>> = _nodes.asStateFlow()
-
     private val _edges = MutableStateFlow<List<Edge>>(emptyList())
     val edges: StateFlow<List<Edge>> = _edges.asStateFlow()
+    private val _userPosition = MutableStateFlow<Offset?>(null)
+    val userPosition: StateFlow<Offset?> = _userPosition.asStateFlow()
+    private val _searchResult = MutableStateFlow<List<NodeWithShape>>(emptyList())
+    val searchResult: StateFlow<List<NodeWithShape>> = _searchResult.asStateFlow()
+    private val _boothWithVendor = MutableStateFlow<BoothWithVendor?>(null)
+    val boothWithVendor = _boothWithVendor.asStateFlow()
 
-    private val _draggingState = MutableStateFlow<DraggingState?>(null)
-    val draggingState: StateFlow<DraggingState?> = _draggingState.asStateFlow()
-
-    // Trạng thái Pan và Zoom
-    private val _scale = MutableStateFlow(1f)
-    val scale: StateFlow<Float> = _scale.asStateFlow()
-
-    private val _offset = MutableStateFlow(Offset.Zero)
-    val offset: StateFlow<Offset> = _offset.asStateFlow()
-
-    private val _rotation = MutableStateFlow(0f)
-    val rotation: StateFlow<Float> = _rotation.asStateFlow()
-
-    // Trạng thái để phân biệt Pan và Kéo-cạnh
-    private val _isPanning = MutableStateFlow(false)
-
-    // Trạng thái lựa chọn mới
-    private val _selection = MutableStateFlow<Selection>(Selection.None)
-    val selection: StateFlow<Selection> = _selection.asStateFlow()
-
-    // Theo dõi kích thước màn hình để căn giữa
-    private var _viewSize = IntSize.Zero
-    private var _isInitialized = false
-
-    private val _searchResult = MutableStateFlow<List<Node>>(emptyList())
-    val searchResult: StateFlow<List<Node>> = _searchResult.asStateFlow()
-
-    suspend fun getNodesByLabel(label: String) {
-        infoRepository.getNodesByLabel(label, _uiState.value.selectedFloor.id).collect {
-            _searchResult.value = it
-        }
-    }
-
-    // --- Quản lý Khởi tạo ---
-
-    fun setScreenSize(size: IntSize) {
-        if (_viewSize == size) return
-        _viewSize = size
-
-        // Chỉ set offset về tâm trong lần đầu tiên (khi app vừa mở)
-        if (!_isInitialized && size.width > 0 && size.height > 0) {
-            _offset.value = Offset(size.width / 2f, size.height / 2f)
-            _isInitialized = true
-        }
-    }
+    private val _pathOffsetAndNode = MutableStateFlow<Pair<List<Offset>, List<Node>>?>(null)
+    val pathOffsetAndNode: StateFlow<Pair<List<Offset>, List<Node>>?> = _pathOffsetAndNode.asStateFlow()
 
     private val _selectedBuildingIdFlow: Flow<Long?> = _uiState
         .map { it.selectedBuilding.id }
@@ -188,7 +117,9 @@ class MapViewModel @Inject constructor(
                 .collect { floorGraph ->
                     Log.d("MapEditorViewModel", "setupDependentFlows: ${floorGraph.toString()}")
                     // Cập nhật Nodes và Edges mới
-                    _nodes.value = floorGraph.nodes
+                    _nodes.value = floorGraph.nodeWithShapes
+                        .filter { (node, _) -> node.type != Node.HALLWAY }
+                        .map { it.node }
                     _edges.value = floorGraph.edges
                 }
         }
@@ -208,7 +139,6 @@ class MapViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false) }
                 }
         }
-        // Gọi hàm thiết lập Flow phụ thuộc (Xem Bước 3)
         setupDependentFlows()
     }
 
@@ -224,329 +154,22 @@ class MapViewModel @Inject constructor(
         _userPosition.value = offset
     }
 
-    // --- Quản lý Nút (Node) ---
-
-    /** Thêm một nút mới tại vị trí chạm */
-    fun addNode(position: Offset) {
+    fun getNodesByLabel(label: String) {
         viewModelScope.launch {
-            mapRepository.upsertNode(
-                Node(
-                    floorId = _uiState.value.selectedFloor.id,
-                    x = position.x,
-                    y = position.y,
-                    label = "Nút ${_nodes.value.size + 1}"
-                )
-            )
-        }
-//        _nodes.update { it + newNode }
-    }
-
-    /** Tìm nút theo ID */
-    fun getNodeById(id: Long): Node? = _nodes.value.find { it.id == id }
-
-    // --- Quản lý Cạnh (Edge) ---
-
-    /** Xoá lựa chọn hiện tại (nút hoặc cạnh) */
-    fun deleteSelection() {
-        when (val currentSelection = _selection.value) {
-            is Selection.EdgeSelected -> {
-                // Xoá cạnh
-//                _edges.update { currentEdges ->
-//                    currentEdges.filterNot { it.id == currentSelection.id }
-//                }
-                viewModelScope.launch {
-                    mapRepository.deleteEdge(currentSelection.edge)
-                }
-            }
-
-            is Selection.NodeSelected -> {
-                // Xoá nút
-//                _nodes.update { currentNodes ->
-//                    currentNodes.filterNot { it.id == currentSelection.id }
-//                }
-                // Xoá các cạnh nối với nút đó
-//                _edges.update { currentEdges ->
-//                    currentEdges.filterNot {
-//                        it.startNodeId == currentSelection.id || it.endNodeId == currentSelection.id
-//                    }
-//                }
-                viewModelScope.launch {
-                    mapRepository.deleteNode(currentSelection.node)
-                    mapRepository.deleteEdgesByNodeId(currentSelection.node.id)
-                }
-            }
-
-            Selection.None -> {
-                // Không làm gì
+            infoRepository.getShapesByLabel(label, _uiState.value.selectedFloor.id).collect {
+                _searchResult.value = it.filter { nodeWithShape -> nodeWithShape.shape != null }
             }
         }
-        // Bỏ chọn sau khi xoá
-        _selection.value = Selection.None
     }
 
-    /** Bỏ chọn tất cả các cạnh */
-    private fun clearSelection() {
-        _selection.value = Selection.None
-    }
-
-    // --- Xử lý cử chỉ (Gestures) ---
-
-    /**
-     * Hàm tiện ích để xoay một điểm quanh gốc (0,0)
-     */
-    private fun rotatePoint(point: Offset, degrees: Float): Offset {
-        val radians = Math.toRadians(degrees.toDouble())
-        val cos = cos(radians)
-        val sin = sin(radians)
-        val newX = point.x * cos - point.y * sin
-        val newY = point.x * sin + point.y * cos
-        return Offset(newX.toFloat(), newY.toFloat())
-    }
-
-    /**
-     * Chuyển đổi Screen -> World với Offset, Scale và Rotation
-     * Công thức: World = Rotate_Inverse(Screen - Offset) / Scale
-     */
-    private fun screenToWorld(screenPos: Offset): Offset {
-        val translated = screenPos - _offset.value
-        // Xoay ngược lại để tìm tọa độ gốc
-        val rotated = rotatePoint(translated, -_rotation.value)
-        return rotated / _scale.value
-    }
-
-    /**
-     * Được gọi khi người dùng chạm (tap) vào canvas.
-     * Dùng để chọn nút hoặc cạnh.
-     */
-    fun onTap(screenOffset: Offset) {
-        val worldOffset = screenToWorld(screenOffset)
-
-        // 1. Kiểm tra chạm vào nút
-        val tappedNode = findTappedNode(worldOffset)
-        if (tappedNode != null) {
-            _selection.value = Selection.NodeSelected(tappedNode)
-            return
-        }
-
-        // 2. Kiểm tra chạm vào cạnh
-        val tappedEdge = findTappedEdge(worldOffset)
-        if (tappedEdge != null) {
-            _selection.value = Selection.EdgeSelected(tappedEdge)
-            return
-        }
-
-        // 3. Bỏ chọn tất cả nếu chạm vào khoảng trống
-        clearSelection()
-    }
-
-    /**
-     * Được gọi khi người dùng bắt đầu kéo (drag).
-     * Sẽ phân biệt giữa Pan (kéo nền) và Create Edge (kéo từ nút).
-     */
-    fun onDragStart(screenOffset: Offset) {
-        val worldOffset = screenToWorld(screenOffset)
-        val startNode = findTappedNode(worldOffset)
-
-        if (startNode != null) {
-            // Bắt đầu kéo để TẠO CẠNH
-            _draggingState.value = DraggingState(startNode, worldOffset)
-            clearSelection() // Bỏ chọn khi bắt đầu kéo cạnh mới
-            _isPanning.value = false
-        } else {
-            // Bắt đầu PAN
-            _isPanning.value = true
-            clearSelection() // Bỏ chọn khi pan
+    fun loadBoothWithVendor(nodeId: Long) {
+        viewModelScope.launch {
+            _boothWithVendor.value =
+                infoRepository.getBoothWithVendorByNodeId(nodeId)
         }
     }
 
-    /**
-     * Được gọi khi người dùng đang kéo.
-     * Cập nhật vị trí đường kéo HOẶC cập nhật offset (pan).
-     */
-    fun onDragGesture(change: PointerInputChange, dragAmount: Offset) {
-        if (_isPanning.value) {
-            // Đang Pan
-            _offset.update { it + dragAmount }
-        } else if (_draggingState.value != null) {
-            // Đang kéo cạnh
-            onDragEdge(change.position)
-        }
-    }
 
-    /**
-     * Cập nhật vị trí đường kéo (logic onDrag cũ)
-     */
-    private fun onDragEdge(newScreenPosition: Offset) {
-        val currentDrag = _draggingState.value ?: return
-        val newWorldPosition = screenToWorld(newScreenPosition)
-
-        // Tìm nút mục tiêu để "dính" vào
-        val snapTarget = _nodes.value.find {
-            it.id != currentDrag.startNode.id && // Không phải nút gốc
-                    (Offset(it.x, it.y) - newWorldPosition).getDistanceSquared() <= SNAP_THRESHOLD.pow(2)
-        }
-
-        _draggingState.value = currentDrag.copy(
-            currentPosition = newWorldPosition,
-            snapTargetNode = snapTarget
-        )
-    }
-
-    /**
-     * Được gọi khi người dùng nhả tay (kết thúc kéo).
-     * Tạo cạnh mới HOẶC dừng pan.
-     */
-    fun onDragEnd() {
-        if (_isPanning.value) {
-            // Dừng pan
-            _isPanning.value = false
-        } else if (_draggingState.value != null) {
-            // Hoàn tất kéo cạnh
-            onDragEdgeEnd()
-        }
-    }
-
-    /**
-     * Tạo cạnh mới nếu đang "dính" vào một nút (logic onDragEnd cũ)
-     */
-    private fun onDragEdgeEnd() {
-        val currentDrag = _draggingState.value ?: return
-        val targetNode = currentDrag.snapTargetNode
-
-        if (targetNode != null) {
-            // Tạo cạnh mới nếu chưa tồn tại
-            val edgeExists = _edges.value.any {
-                (it.fromNode == currentDrag.startNode.id && it.toNode == targetNode.id) ||
-                        (it.fromNode == targetNode.id && it.toNode == currentDrag.startNode.id)
-            }
-            if (!edgeExists) {
-                viewModelScope.launch {
-                    mapRepository.upsertEdge(
-                        Edge(
-                            venueId = _uiState.value.selectedBuilding.venueId,
-                            fromNode = currentDrag.startNode.id,
-                            toNode = targetNode.id,
-                            floorId = _uiState.value.selectedFloor.id,
-                            weight = (Offset(currentDrag.startNode.x, currentDrag.startNode.y) - Offset(targetNode.x, targetNode.y)).getDistance()
-                        )
-                    )
-                }
-//                _edges.update {
-//                    it + Edge(
-//                        startNodeId = currentDrag.startNode.id,
-//                        endNodeId = targetNode.id
-//                    )
-//                }
-            }
-        }
-        // Hoàn tất kéo, xoá trạng thái
-        _draggingState.value = null
-    }
-
-    /**
-     * Xử lý Zoom, Pan (2 ngón) và Rotate
-     */
-    fun onTransform(centroid: Offset, pan: Offset, zoom: Float, rotationChange: Float) {
-        // 1. Xác định điểm trên bản đồ nằm dưới tay ở TRẠNG THÁI CŨ
-        // centroid: vị trí hiện tại của tay
-        // pan: độ dịch chuyển của tay so với lần trước
-        // => centroid - pan = vị trí cũ của tay
-        val oldScreenPos = centroid - pan
-        val pivotWorldPos = screenToWorld(oldScreenPos) // Điểm neo trên bản đồ
-
-        // 2. Cập nhật Scale và Rotation mới
-        val newScale = (_scale.value * zoom).coerceIn(0.1f, 10f)
-        val newRotation = _rotation.value + rotationChange
-
-        _scale.value = newScale
-        _rotation.value = newRotation
-
-        // 3. Tính toán Offset mới
-        // Mục tiêu: pivotWorldPos (sau khi scale & rotate) phải nằm đúng tại vị trí centroid (vị trí tay hiện tại)
-
-        // Tọa độ vector của điểm neo đã biến đổi (tính từ gốc 0,0 của World)
-        val scaledWorldVector = pivotWorldPos * newScale
-        val rotatedScaledWorldVector = rotatePoint(scaledWorldVector, newRotation)
-
-        // Offset = Vị trí tay hiện tại - Vector điểm neo đã biến đổi
-        _offset.value = centroid - rotatedScaledWorldVector
-    }
-
-    /**
-     * Phóng to/Thu nhỏ (dùng cho nút bấm)
-     */
-    fun zoom(factor: Float) {
-        // Zoom quanh tâm màn hình hiện tại
-        val centerX = _viewSize.width / 2f
-        val centerY = _viewSize.height / 2f
-        val center = Offset(centerX, centerY)
-
-        // Sử dụng logic onTransform để zoom mượt mà quanh tâm
-        // Giả lập zoom 1.2x hoặc 0.8x
-        onTransform(centroid = center, pan = Offset.Zero, zoom = factor, rotationChange = 0f)
-    }
-
-    // --- Hàm trợ giúp tính toán ---
-    private fun findTappedNode(worldOffset: Offset): Node? {
-        val currentScale = _scale.value
-        val node = _nodes.value.find {
-            // QUAN TRỌNG: Chia bán kính cho scale để khớp với hình vẽ trên màn hình
-            val worldRadius = RADIUS / currentScale
-            (Offset(it.x, it.y) - worldOffset).getDistanceSquared() <= worldRadius.pow(2)
-        }
-        return node
-    }
-
-    private fun findTappedEdge(worldOffset: Offset): Edge? {
-        val currentScale = _scale.value
-        // QUAN TRỌNG: Vùng chạm cạnh cũng cần chia cho scale
-        val worldThresholdSq = (EDGE_TAP_THRESHOLD / currentScale).pow(2)
-
-        return _edges.value.find { edge ->
-            val fromNode = getNodeById(edge.fromNode) ?: return@find false
-            val p1 = Offset(fromNode.x, fromNode.y)
-            val toNode = getNodeById(edge.toNode) ?: return@find false
-            val p2 = Offset(toNode.x, toNode.y)
-            distanceToSegmentSquared(worldOffset, p1, p2) <= worldThresholdSq
-        }
-    }
-
-//    private fun findTappedNode(offset: Offset): Node? {
-//        return _nodes.value.find {
-//            (Offset(it.x, it.y) - offset).getDistanceSquared() <= RADIUS.pow(2)
-//        }
-//    }
-//
-//    private fun findTappedEdge(offset: Offset): Edge? {
-//        val tapThresholdSq = EDGE_TAP_THRESHOLD.pow(2)
-//        return _edges.value.find { edge ->
-//            val fromNode = getNodeById(edge.fromNode) ?: return@find false
-//            val p1 = Offset(fromNode.x, fromNode.y)
-//            val toNode = getNodeById(edge.toNode) ?: return@find false
-//            val p2 = Offset(toNode.x, toNode.y)
-//            distanceToSegmentSquared(offset, p1, p2) <= tapThresholdSq
-//        }
-//    }
-
-    /**
-     * Tính bình phương khoảng cách từ điểm p đến đoạn thẳng (v, w).
-     * Dùng để kiểm tra va chạm với cạnh.
-     */
-    private fun distanceToSegmentSquared(p: Offset, v: Offset, w: Offset): Float {
-        val l2 = (v - w).getDistanceSquared()
-        if (l2 == 0f) return (p - v).getDistanceSquared() // Đoạn thẳng là 1 điểm
-        val t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2
-        val tClamped = t.coerceIn(0f, 1f)
-        val projection = Offset(
-            v.x + tClamped * (w.x - v.x),
-            v.y + tClamped * (w.y - v.y)
-        )
-        return (p - projection).getDistanceSquared()
-    }
-
-    /**
-     * Graph
-     */
     fun findPathToNode(targetNode: Node) {
         val currentUserPos = _userPosition.value ?: return
         val allNodes = _nodes.value
@@ -571,12 +194,20 @@ class MapViewModel @Inject constructor(
         } else {
             allNodes
                 .filter { it.id in connectedNodeIds && it.id != targetNode.id } // Trừ chính nó ra
-                .minByOrNull { calculateDistance(Offset(targetNode.x, targetNode.y), it) }
+                .minByOrNull {
+                    calculateDistance(
+                        Offset(
+                            targetNode.x,
+                            targetNode.y
+                        ), it
+                    )
+                }
                 ?: startNode // Fallback: nếu ko tìm được thì quay về start
         }
 
         // --- BƯỚC 3: DIJKSTRA (VÔ HƯỚNG) ---
-        val pathNodes = runDijkstra(startNode.id, endGatewayNode.id, allNodes, allEdges)
+        val pathNodes =
+            runDijkstra(startNode.id, endGatewayNode.id, allNodes, allEdges)
 
         // --- BƯỚC 4: TỔNG HỢP ĐƯỜNG ĐI (OFFSET) ---
         val pathOffsets = mutableListOf<Offset>()
@@ -665,14 +296,8 @@ class MapViewModel @Inject constructor(
     private fun calculateDistance(pos: Offset, node: Node): Float {
         return hypot(pos.x - node.x, pos.y - node.y)
     }
-
-    // Helper: Tính khoảng cách giữa 2 Nodes (cho weight nếu cần)
-    private fun calculateNodeDistance(n1: Node, n2: Node): Float {
-        return hypot(n1.x - n2.x, n1.y - n2.y)
-    }
 }
 
-// Data class hỗ trợ cho thuật toán Dijkstra
 data class PathNode(val nodeId: Long, val distance: Float) : Comparable<PathNode> {
     override fun compareTo(other: PathNode): Int = this.distance.compareTo(other.distance)
 }

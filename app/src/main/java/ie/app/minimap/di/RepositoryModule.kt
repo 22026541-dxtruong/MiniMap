@@ -12,6 +12,7 @@ import ie.app.minimap.data.local.dao.EventDao
 import ie.app.minimap.data.local.dao.FloorConnectionDao
 import ie.app.minimap.data.local.dao.FloorDao
 import ie.app.minimap.data.local.dao.NodeDao
+import ie.app.minimap.data.local.dao.ShapeDao
 import ie.app.minimap.data.local.dao.VendorDao
 import ie.app.minimap.data.local.dao.VenueDao
 import ie.app.minimap.data.local.repository.EventRepository
@@ -31,13 +32,15 @@ object RepositoryModule {
         nodeDao: NodeDao,
         edgeDao: EdgeDao,
         floorDao: FloorDao,
-        floorConnectionDao: FloorConnectionDao
+        floorConnectionDao: FloorConnectionDao,
+        shapeDao: ShapeDao
     ): MapRepository = MapRepository(
         buildingDao,
         floorDao,
         nodeDao,
         edgeDao,
-        floorConnectionDao
+        floorConnectionDao,
+        shapeDao
     )
 
     @Provides
@@ -75,7 +78,8 @@ object RepositoryModule {
         floorDao: FloorDao,
         floorConnectionDao: FloorConnectionDao,
         edgeDao: EdgeDao,
-        venueDao: VenueDao
+        venueDao: VenueDao,
+        shapeDao: ShapeDao
     ): InfoRepository = InfoRepository(
         db,
         venueDao,
@@ -86,7 +90,8 @@ object RepositoryModule {
         floorDao,
         floorConnectionDao,
         edgeDao,
-        eventDao
+        eventDao,
+        shapeDao
     )
 
 }

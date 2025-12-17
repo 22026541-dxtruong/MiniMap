@@ -150,6 +150,7 @@ class HomeViewModel @Inject constructor(
     }
 
     fun generateQrCode(context: Context, text: String, size: Int = 512): Bitmap {
+        Log.d("HomeViewModel", "Generating QR code with text: $text")
         // 1. QR với Error Correction Level H
         val hints = mapOf(
             EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H,
