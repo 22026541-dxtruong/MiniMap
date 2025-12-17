@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import ie.app.minimap.data.local.entity.Venue
-import ie.app.minimap.data.local.repository.VenueRepository // Import VenueRepository
+import ie.app.minimap.data.local.repository.VenueRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

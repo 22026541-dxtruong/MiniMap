@@ -59,8 +59,9 @@ object RepositoryModule {
     fun provideEventRepository(
         eventDao: EventDao,
         boothDao: BoothDao,
-        buildingDao: BuildingDao
-    ): EventRepository = EventRepository(eventDao, boothDao, buildingDao)
+        buildingDao: BuildingDao,
+        vendorDao: VendorDao,
+    ): EventRepository = EventRepository(eventDao, boothDao, buildingDao,vendorDao)
 
     @Provides
     @Singleton

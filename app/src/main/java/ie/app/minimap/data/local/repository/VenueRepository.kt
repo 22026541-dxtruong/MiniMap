@@ -18,7 +18,7 @@ class VenueRepository @Inject constructor(
     private val database: AppDatabase
 ) {
 
-    fun getVenueById(id : Long): Venue {
+    suspend fun getVenueById(id : Long): Venue {
          return venueDao.getVenueById(id)
     }
 

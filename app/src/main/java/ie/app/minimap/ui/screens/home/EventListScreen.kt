@@ -56,6 +56,7 @@ import ie.app.minimap.data.local.entity.Venue
 
 // Dữ liệu giả định
 data class Event(
+    val id: Long,
     val title: String,
     val time: String,
     val location: String,
@@ -65,6 +66,7 @@ data class Event(
 
 fun Venue.toEvent(isLiveEvent: Boolean = false, imageId: Int = R.drawable.event_live): Event {
     return Event(
+        id = this.id,
         title = this.name,
         time = "Chưa xác định thời gian", // Placeholder vì Venue thiếu trường này
         location = this.address,
@@ -75,7 +77,7 @@ fun Venue.toEvent(isLiveEvent: Boolean = false, imageId: Int = R.drawable.event_
 
 @Composable
 fun EventListScreen(
-
+    onVenueClick: (Long) -> Unit,
     viewModel: EventListViewModel = hiltViewModel()
 ) {
     val venues by viewModel.venues.collectAsState()
@@ -147,7 +149,8 @@ fun EventListScreen(
                         EventSection(
                             title = "Đang diễn ra",
                             events = liveEvents,
-                            isLiveSection = true
+                            isLiveSection = true,
+                            onEventClick = onVenueClick
                         )
                     }
 
@@ -156,7 +159,8 @@ fun EventListScreen(
                         EventSection(
                             title = "Sắp diễn ra",
                             events = upcomingEvents,
-                            isLiveSection = false
+                            isLiveSection = false,
+                            onEventClick = onVenueClick
                         )
                     }
                 } else {
@@ -301,7 +305,7 @@ fun FilterChipsRow(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun EventSection(title: String, events: List<Event>, isLiveSection: Boolean) {
+fun EventSection(title: String, events: List<Event>, isLiveSection: Boolean, onEventClick: (Long) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (isLiveSection) {
@@ -324,16 +328,21 @@ fun EventSection(title: String, events: List<Event>, isLiveSection: Boolean) {
 
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             events.forEach { event ->
-                EventCard(event = event)
+                EventCard(
+                    event = event,
+                    onClick = { onEventClick(event.id) })
             }
         }
     }
 }
 
 @Composable
-fun EventCard(event: Event) {
+fun EventCard(
+    event: Event,
+    onClick: () -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -459,6 +468,6 @@ fun NoResultsView(modifier: Modifier = Modifier) {
 @Composable
 fun EventListScreenPreview() {
     MiniMapTheme {
-        EventListScreen()
+        EventListScreen(onVenueClick = {})
     }
 }
