@@ -119,7 +119,7 @@ fun ArView(
 
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            viewModel.onDestroy(arSceneView) // Hủy hoàn toàn khi Composable bị hủy
+            viewModel.onDestroyView(arSceneView) // Hủy hoàn toàn khi Composable bị hủy
         }
     }
     DisposableEffect(arSceneView) {
@@ -198,32 +198,6 @@ fun ArView(
 
                         true // Đã xử lý
                     }
-
-//                    view.scene.addOnUpdateListener {
-//                        // Cập nhật TransformationSystem mỗi frame
-//                        val frame = view.arFrame
-//                        if (frame != null) {
-//                            val cameraPose = frame.camera.pose
-//                            updateUserLocation(
-//                                if (nodes.isNotEmpty()) {
-//                                    viewModel.updateUserLocationFromWorld(
-//                                        cameraPose.tx(),
-//                                        cameraPose.tz(),
-//                                        nodes
-//                                    )
-//                                } else {
-//                                    viewModel.worldToCanvas(cameraPose.tx(), cameraPose.tz())
-//                                }
-//                            )
-//                            // Trích xuất tọa độ [x, y, z]
-//                            Log.d(
-//                                "MiniMap",
-//                                "Camera Pose: ${cameraPose.tx()} ${cameraPose.ty()} ${cameraPose.tz()} ${cameraPose.qx()} ${cameraPose.qy()} ${cameraPose.qz()} ${cameraPose.qw()}"
-//                            )
-//                        }
-//                        viewModel.onUpdate(view)
-//
-//                    }
 
                 }
             }

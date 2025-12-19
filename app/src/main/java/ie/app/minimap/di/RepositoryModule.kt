@@ -28,6 +28,7 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideMapRepository(
+        database: AppDatabase,
         buildingDao: BuildingDao,
         nodeDao: NodeDao,
         edgeDao: EdgeDao,
@@ -35,6 +36,7 @@ object RepositoryModule {
         floorConnectionDao: FloorConnectionDao,
         shapeDao: ShapeDao
     ): MapRepository = MapRepository(
+        database,
         buildingDao,
         floorDao,
         nodeDao,
@@ -78,8 +80,7 @@ object RepositoryModule {
         floorDao: FloorDao,
         floorConnectionDao: FloorConnectionDao,
         edgeDao: EdgeDao,
-        venueDao: VenueDao,
-        shapeDao: ShapeDao
+        venueDao: VenueDao
     ): InfoRepository = InfoRepository(
         db,
         venueDao,
@@ -90,8 +91,7 @@ object RepositoryModule {
         floorDao,
         floorConnectionDao,
         edgeDao,
-        eventDao,
-        shapeDao
+        eventDao
     )
 
 }
