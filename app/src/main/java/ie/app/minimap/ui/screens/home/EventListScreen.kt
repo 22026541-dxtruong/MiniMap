@@ -18,9 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,21 +28,14 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ie.app.minimap.R
@@ -55,6 +46,27 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import ie.app.minimap.data.local.entity.Venue
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 // Dữ liệu giả định
 data class Event(
@@ -491,6 +503,169 @@ fun NoResultsView(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+    }
+}
+val IosRed = Color(0xFFFF3B30)
+val IosGray = Color(0xFFF2F2F7)
+val TextDark = Color(0xFF111827)
+val TextGray = Color(0xFF6B7280)
+
+@Composable
+fun DeleteEventDialog(
+    eventName: String = "Tech Expo 2024",
+    onDismiss: () -> Unit = {},
+    onConfirm: () -> Unit = {}
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false // Cho phép tràn lề tùy chỉnh
+        )
+    ) {
+        // Khung Dialog chính
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.88f) // max-width tương đương bản web
+                .wrapContentHeight()
+                .shadow(
+                    elevation = 30.dp,
+                    shape = RoundedCornerShape(32.dp),
+                    spotColor = Color.Black.copy(alpha = 0.2f)
+                ),
+            shape = RoundedCornerShape(32.dp),
+            color = Color.White
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 28.dp, vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // --- Icon Thùng rác với hiệu ứng Ring ---
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .background(Color(0xFFFFEBEB), CircleShape) // Nền đỏ nhạt ngoài cùng
+                        .border(4.dp, Color(0xFFFFEBEB).copy(alpha = 0.5f), CircleShape) // Hiệu ứng Ring
+                        .padding(4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .border(1.dp, Color(0xFFFFD6D6), CircleShape) // Viền đỏ nhạt bên trong
+                            .clip(CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            tint = IosRed,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // --- Tiêu đề ---
+                Text(
+                    text = "Xóa sự kiện này?",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextDark,
+                    letterSpacing = (-0.5).sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // --- Nội dung mô tả với AnnotatedString ---
+                Text(
+                    text = buildAnnotatedString {
+                        append("Bạn có chắc muốn xóa ")
+                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = TextDark)) {
+                            append(eventName)
+                        }
+                        append(" không? Hành động này không thể hoàn tác.")
+                    },
+                    fontSize = 15.sp,
+                    color = TextGray,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // --- Cụm nút bấm hành động ---
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Nút Xóa
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .shadow(
+                                elevation = 12.dp,
+                                shape = RoundedCornerShape(16.dp),
+                                spotColor = IosRed.copy(alpha = 0.25f)
+                            ),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = IosRed,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                    ) {
+                        Text(
+                            text = "Xóa sự kiện",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Nút Hủy
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = IosGray,
+                            contentColor = TextDark
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = null
+                    ) {
+                        Text(
+                            text = "Hủy",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(name = "Light Mode", showBackground = true)
+@Composable
+fun DeleteEventDialogPreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF6F7F8)),
+            contentAlignment = Alignment.Center
+        ) {
+            DeleteEventDialog(
+                eventName = "Tech Expo 2024",
+                onDismiss = {},
+                onConfirm = {}
+            )
+        }
     }
 }
 
