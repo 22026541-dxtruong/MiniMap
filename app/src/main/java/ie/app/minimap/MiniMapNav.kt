@@ -10,6 +10,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import ie.app.minimap.ui.screens.home.HomeScreen
 import ie.app.minimap.ui.screens.event.EventScreen
+import ie.app.minimap.ui.screens.home.EventListScreen
 import ie.app.minimap.ui.screens.map.MapEditorScreen
 import ie.app.minimap.ui.screens.map.MapViewerScreen
 import ie.app.minimap.ui.screens.qrscanner.QrScannerScreen
@@ -22,7 +23,13 @@ data object Home : NavKey
 data object QrScanner : NavKey
 
 @Serializable
+data object EventListing : NavKey
+
+@Serializable
 data class VenueDetails(val venueId: Long) : NavKey
+
+@Serializable
+data class EventDetail(val venueId: Long) : NavKey
 
 @Serializable
 data class MapEditor(val venueId: Long) : NavKey
@@ -34,7 +41,7 @@ data class MapViewer(val venueId: Long) : NavKey
 fun MiniMapNav(
     modifier: Modifier = Modifier
 ) {
-    val backStack = rememberNavBackStack(Home)
+    val backStack = rememberNavBackStack(EventListing)
 
     NavDisplay(
         modifier = modifier,
@@ -51,6 +58,24 @@ fun MiniMapNav(
                     onQrScanClicked = { backStack.add(QrScanner) }
                 )
             }
+            entry<EventListing> {
+                EventListScreen(
+                    onVenueClick = { id ->
+                        backStack.add(EventDetail(venueId = id))
+                    }
+                )
+            }
+//            entry<EventDetail> { key ->
+//                EventDetailScreen(
+//                    venueId = key.venueId,
+//                    onBackClicked = {
+//                        backStack.removeLastOrNull()
+//                    },
+//                    onMapClicked = { id ->
+//                        backStack.add(Map(venueId = id))
+//                    }
+//                )
+//            }
             entry<QrScanner> {
                 QrScannerScreen(
                     onScannedSuccess = {

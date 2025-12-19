@@ -10,8 +10,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
@@ -19,9 +23,9 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,11 +34,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -43,22 +49,34 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import ie.app.minimap.R
 import ie.app.minimap.data.local.entity.Venue
 import kotlinx.coroutines.launch
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.graphics.SolidColor
 
 //@Preview(showSystemUi = true)
 @Composable
@@ -447,91 +465,179 @@ fun VenueDialog(
     var address by remember { mutableStateOf(addressVenue) }
     var description by remember { mutableStateOf(descriptionVenue) }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = modifier
-                .fillMaxWidth()
+    val primaryViolet = Color(0xFF8B5CF6)
+    val secondaryFuchsia = Color(0xFFD946EF)
+    val gradientBrush = Brush.horizontalGradient(listOf(primaryViolet, secondaryFuchsia))
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
                 .wrapContentHeight()
-                .padding(24.dp),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 8.dp
+                .shadow(elevation = 24.dp, shape = RoundedCornerShape(32.dp))
+                .clip(RoundedCornerShape(32.dp))
+                .background(MaterialTheme.colorScheme.surface)
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
             ) {
-                // Title
-                Text(
-                    text = "Venue",
-                    style = MaterialTheme.typography.headlineSmall
-                )
+                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+            }
 
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Name") },
-                    leadingIcon = {
-                        Icon(
-                            painter = painterResource(id = R.drawable.outline_id_card_24),
-                            contentDescription = null
-                        )
+            Column(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                Column {
+                    Text(
+                        text = if (idVenue == 0L) "Add Venue Event" else "Event Details",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1F2937)
+                    )
+                    Text(
+                        text = if (idVenue == 0L) "Enter Event details below." else "Edit the Event details below.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                CustomDialogTextField(name, { name = it }, "Venue Name", Icons.Default.Badge, primaryViolet)
+                CustomDialogTextField(address, { address = it }, "Address", Icons.Default.LocationOn, primaryViolet)
+                CustomDialogTextField(description, { description = it }, "Description", Icons.Default.Edit, primaryViolet, true)
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                val isEnabled = name.isNotBlank() && address.isNotBlank()
+                val scale by animateFloatAsState(if (isEnabled) 1f else 0.97f, label = "ButtonScale")
+
+                val buttonBrush = if (isEnabled) {
+                    gradientBrush
+                } else {
+                    SolidColor(Color.LightGray.copy(alpha = 0.4f))
+                }
+
+                Button(
+                    onClick = {
+                        if (idVenue == 0L) onSave(name, address, description)
+                        else onUpdateVenue(idVenue, name, address, description)
+                        onDismiss()
                     },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = { address = it },
-                    label = { Text("Address") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = null
-                        )
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Description") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = null
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Action buttons
-                Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    modifier = Modifier.fillMaxWidth()
+                    enabled = isEnabled,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .graphicsLayer(scaleX = scale, scaleY = scale)
+                        .clip(CircleShape)
+                        .background(buttonBrush), // Truyền Brush thống nhất
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent // Quan trọng: Để background Modifier tự xử lý
+                    ),
+                    contentPadding = PaddingValues()
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Cancel")
-                    }
-                    Button(
-                        onClick = {
-                            if (idVenue == 0L) {
-                                onSave(name, address, description)   // CREATE
-                            } else {
-                                onUpdateVenue(idVenue, name, address, description) // EDIT
-                            }
-                            onDismiss()
-                        },
-                        enabled = name.isNotBlank() && address.isNotBlank()
-                    ) {
-                        Text("Save")
-                    }
+                    Text(
+                        text = if (idVenue == 0L) "Create Venue" else "Save Changes",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isEnabled) Color.White else Color.Gray
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun CustomDialogTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    primaryColor: Color,
+    isMultiline: Boolean = false
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    val borderColor by animateColorAsState(if (isFocused) primaryColor else Color.Transparent, label = "border")
+    val containerColor by animateColorAsState(if (isFocused) Color.White else Color(0xFFF3F4F6), label = "bg")
+    val elevation by animateDpAsState(if (isFocused) 6.dp else 0.dp, label = "shadow")
+
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation, RoundedCornerShape(16.dp))
+            .border(width = 2.dp, color = borderColor, shape = RoundedCornerShape(16.dp)),
+        label = {
+            Text(
+                text = label,
+                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal
+            )
+        },
+        leadingIcon = {
+            Icon(icon, null, tint = if (isFocused) primaryColor else Color.Gray)
+        },
+        interactionSource = interactionSource,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = containerColor,
+            unfocusedContainerColor = containerColor,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            focusedLabelColor = primaryColor,
+            cursorColor = primaryColor
+        ),
+        shape = RoundedCornerShape(16.dp),
+        singleLine = !isMultiline,
+        minLines = if (isMultiline) 3 else 1
+    )
+}
+
+@Preview(name = "Light Mode - Add New", showBackground = true)
+@Composable
+fun VenueDialogAddPreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.LightGray)
+                .padding(20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            VenueDialog(
+                idVenue = 0L, // Mode thêm mới
+                onDismiss = {}
+            )
+        }
+    }
+}
+
+@Preview(name = "Edit Mode - Existing Data", showBackground = true)
+@Composable
+fun VenueDialogEditPreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF111827)) // Giả lập nền tối
+                .padding(20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            VenueDialog(
+                idVenue = 1L, // Mode chỉnh sửa
+                nameVenue = "Cửa hàng trung tâm",
+                addressVenue = "123 Đường Lê Lợi, Quận 1",
+                descriptionVenue = "Vị trí lắp đặt thiết bị AR tại sảnh chính.",
+                onDismiss = {}
+            )
         }
     }
 }

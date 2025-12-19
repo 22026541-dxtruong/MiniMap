@@ -53,6 +53,8 @@ import ie.app.minimap.ui.theme.PrimaryColor
 import ie.app.minimap.ui.theme.Red500
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import ie.app.minimap.data.local.entity.Venue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 // Dữ liệu giả định
 data class Event(
@@ -78,9 +80,13 @@ fun Venue.toEvent(isLiveEvent: Boolean = false, imageId: Int = R.drawable.event_
 @Composable
 fun EventListScreen(
     onVenueClick: (Long) -> Unit,
-    viewModel: EventListViewModel = hiltViewModel()
+    viewModel: EventListViewModel = hiltViewModel(),
+    viewModel2: HomeViewModel = hiltViewModel()
 ) {
     val venues by viewModel.venues.collectAsState()
+    var isOpenDialog by remember { mutableStateOf(false) }
+    var editingVenue by remember { mutableStateOf<Venue?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
     // Dữ liệu giả định
 //    val liveEvents = listOf(
@@ -112,13 +118,37 @@ fun EventListScreen(
 
     val showNoResults = liveEvents.isEmpty() && upcomingEvents.isEmpty()
 
+    if (isOpenDialog) {
+        VenueDialog(
+            idVenue = editingVenue?.id ?: 0,
+            nameVenue = editingVenue?.name ?: "",
+            addressVenue = editingVenue?.address ?: "",
+            descriptionVenue = editingVenue?.description ?: "",
+            onDismiss = {
+                isOpenDialog = false
+                editingVenue = null
+            },
+            onSave = { name, address, description ->
+                coroutineScope.launch {
+                    viewModel2.createVenue(name, address, description)
+                    isOpenDialog = false
+                }
+            },
+            onUpdateVenue = { id, name, address, description ->
+                viewModel2.updateVenue(Venue(id, name, address, description))
+                isOpenDialog = false
+            }
+        )
+    }
 
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { /* TODO: Xử lý thêm sự kiện */ },
+                onClick = {
+                    editingVenue = null
+                    isOpenDialog = true },
                 containerColor = PrimaryColor,
                 shape = CircleShape,
                 modifier = Modifier.size(56.dp)
