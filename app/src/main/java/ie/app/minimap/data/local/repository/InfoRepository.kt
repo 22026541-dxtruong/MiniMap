@@ -1,5 +1,6 @@
 package ie.app.minimap.data.local.repository
 
+import androidx.room.Transaction
 import androidx.room.withTransaction
 import ie.app.minimap.data.local.AppDatabase
 import ie.app.minimap.data.local.dao.BoothDao
@@ -9,7 +10,6 @@ import ie.app.minimap.data.local.dao.EventDao
 import ie.app.minimap.data.local.dao.FloorConnectionDao
 import ie.app.minimap.data.local.dao.FloorDao
 import ie.app.minimap.data.local.dao.NodeDao
-import ie.app.minimap.data.local.dao.ShapeDao
 import ie.app.minimap.data.local.dao.VendorDao
 import ie.app.minimap.data.local.dao.VenueDao
 import ie.app.minimap.data.local.entity.Booth
@@ -36,13 +36,20 @@ class InfoRepository @Inject constructor(
     private val floorDao: FloorDao,
     private val floorConnectionDao: FloorConnectionDao,
     private val edgeDao: EdgeDao,
-    private val eventDao: EventDao,
-    private val shapeDao: ShapeDao
+    private val eventDao: EventDao
 ) {
 
     fun getShapesByLabel(label: String, floorId: Long) = nodeDao.getShapesByLabel(label, floorId)
 
     suspend fun getBoothWithVendorByNodeId(nodeId: Long) = boothDao.getBoothWithVendorByNodeId(nodeId)
+
+    @Transaction
+    suspend fun updateBoothAndVendor(booth: Booth, vendor: Vendor) {
+        val vendorId = vendorDao.upsert(vendor)
+        boothDao.upsert(booth.copy(vendorId = if (vendorId == -1L) vendor.id else vendorId))
+    }
+
+    fun getAllVendors() = vendorDao.getAllVendors()
 
     suspend fun upsertVendor(vendor: Vendor): Long {
         return vendorDao.upsert(vendor)

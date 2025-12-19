@@ -11,15 +11,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import ie.app.minimap.data.local.entity.Edge
 import ie.app.minimap.data.local.entity.Node
 import ie.app.minimap.data.local.entity.Shape
-import ie.app.minimap.data.local.relations.BoothWithVendor
 import ie.app.minimap.data.local.relations.NodeWithShape
-import ie.app.minimap.data.local.repository.InfoRepository
 import ie.app.minimap.data.local.repository.MapRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
@@ -85,8 +84,7 @@ data class GraphUiState(
 
 @HiltViewModel
 class GraphViewModel @Inject constructor(
-    private val mapRepository: MapRepository,
-    private val infoRepository: InfoRepository
+    private val mapRepository: MapRepository
 ) : ViewModel() {
 
     companion object {
@@ -147,7 +145,9 @@ class GraphViewModel @Inject constructor(
     fun loadGraph(floorId: Long) {
         viewModelScope.launch {
             _uiState.value = GraphUiState(isLoading = true)
-            mapRepository.getFloorWithNodesAndEdgeByFloorId(floorId).collect {
+            mapRepository.getFloorWithNodesAndEdgeByFloorId(floorId)
+                .filterNotNull()
+                .collect {
                 _nodes.value = it.nodeWithShapes
                 _edges.value = it.edges
                 _uiState.value = GraphUiState(isLoading = false)
@@ -239,16 +239,6 @@ class GraphViewModel @Inject constructor(
         )
     }
 
-    fun deleteShapeNearNode() {
-        val node = _selection.value as? Selection.NodeSelected ?: return
-        if (node.nodeWithShape.shape == null) return
-        viewModelScope.launch {
-            mapRepository.deleteShape(node.nodeWithShape.shape)
-        }
-
-        clearSelection()
-    }
-
     fun updateSelection(selection: Selection) {
         _selection.value = selection
     }
@@ -297,8 +287,6 @@ class GraphViewModel @Inject constructor(
         }
     }
 
-    suspend fun getBoothWithVendor(nodeId: Long) = infoRepository.getBoothWithVendorByNodeId(nodeId)
-
     fun getNodeById(id: Long): NodeWithShape? = _nodes.value.find { it.node.id == id }
 
     // --- Quản lý Cạnh & Xoá ---
@@ -314,7 +302,6 @@ class GraphViewModel @Inject constructor(
             is Selection.NodeSelected -> {
                 viewModelScope.launch {
                     mapRepository.deleteNode(currentSelection.nodeWithShape.node)
-//                    mapRepository.deleteEdgesByNodeId(currentSelection.node.id)
                 }
             }
 
