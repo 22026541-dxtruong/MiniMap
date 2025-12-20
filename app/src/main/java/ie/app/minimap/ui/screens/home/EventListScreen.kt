@@ -46,19 +46,20 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import ie.app.minimap.data.local.entity.Venue
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -99,6 +100,9 @@ fun EventListScreen(
     var isOpenDialog by remember { mutableStateOf(false) }
     var editingVenue by remember { mutableStateOf<Venue?>(null) }
     val coroutineScope = rememberCoroutineScope()
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var venueToDelete by remember { mutableStateOf<Venue?>(null) }
 
     // Dữ liệu giả định
 //    val liveEvents = listOf(
@@ -153,6 +157,23 @@ fun EventListScreen(
         )
     }
 
+    if (showDeleteDialog && venueToDelete != null) {
+        DeleteEventDialog(
+            eventName = venueToDelete?.name ?: "",
+            onDismiss = {
+                showDeleteDialog = false
+                venueToDelete = null
+            },
+            onConfirm = {
+                coroutineScope.launch {
+                    viewModel2.deleteVenue(venueToDelete!!)
+                    showDeleteDialog = false
+                    venueToDelete = null
+                }
+            }
+        )
+    }
+
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -192,7 +213,15 @@ fun EventListScreen(
                             title = "Đang diễn ra",
                             events = liveEvents,
                             isLiveSection = true,
-                            onEventClick = onVenueClick
+                            onEventClick = onVenueClick,
+                            onEditEvent = { id ->
+                                editingVenue = venues.find { it.id == id }
+                                isOpenDialog = true
+                            },
+                            onDeleteEvent = { id ->
+                                venueToDelete = venues.find { it.id == id }
+                                showDeleteDialog = true
+                            }
                         )
                     }
 
@@ -202,7 +231,15 @@ fun EventListScreen(
                             title = "Sắp diễn ra",
                             events = upcomingEvents,
                             isLiveSection = false,
-                            onEventClick = onVenueClick
+                            onEventClick = onVenueClick,
+                            onEditEvent = { id ->
+                                editingVenue = venues.find { it.id == id }
+                                isOpenDialog = true
+                            },
+                            onDeleteEvent = { id ->
+                                venueToDelete = venues.find { it.id == id }
+                                showDeleteDialog = true
+                            }
                         )
                     }
                 } else {
@@ -347,7 +384,8 @@ fun FilterChipsRow(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun EventSection(title: String, events: List<Event>, isLiveSection: Boolean, onEventClick: (Long) -> Unit) {
+fun EventSection(title: String, events: List<Event>, isLiveSection: Boolean, onEventClick: (Long) -> Unit, onEditEvent: (Long) -> Unit,
+                 onDeleteEvent: (Long) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (isLiveSection) {
@@ -372,7 +410,9 @@ fun EventSection(title: String, events: List<Event>, isLiveSection: Boolean, onE
             events.forEach { event ->
                 EventCard(
                     event = event,
-                    onClick = { onEventClick(event.id) })
+                    onClick = { onEventClick(event.id) },
+                    onEdit = { onEditEvent(event.id) },
+                    onDelete = { onDeleteEvent(event.id) })
             }
         }
     }
@@ -381,8 +421,11 @@ fun EventSection(title: String, events: List<Event>, isLiveSection: Boolean, onE
 @Composable
 fun EventCard(
     event: Event,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
@@ -428,8 +471,54 @@ fun EventCard(
                     )
                 }
 
-                // Nút Map
-                ButtonMap(onClick = { /* TODO: Xử lý hiển thị trên bản đồ */ })
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Options",
+                            tint = Slate600
+                        )
+                    }
+
+                    // DropdownMenu xuất hiện khi nhấn MoreVert
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(
+                            Color.White
+                        )
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Chỉnh sửa sự kiện") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onEdit()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Xóa sự kiện", color = Color.Red) },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = Color.Red,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
+                            }
+                        )
+
+                    }    }
             }
         }
     }
@@ -452,6 +541,32 @@ fun EventDetailRow(icon: Int, text: String) {
             text = text,
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+val Slate900 = Color(0xFF0F172A)
+val Slate600 = Color(0xFF475569)
+val Slate400 = Color(0xFF94A3B8)
+val Slate200 = Color(0xFFE2E8F0)
+val PrimaryCyan = Color(0xFF13C8EC)
+
+@Composable
+fun EventIconInfo(icon: ImageVector, text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 2.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = Slate400
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Slate600
         )
     }
 }

@@ -8,6 +8,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import ie.app.minimap.ui.screens.event.EventDetailScreen
 import ie.app.minimap.ui.screens.home.HomeScreen
 import ie.app.minimap.ui.screens.event.EventScreen
 import ie.app.minimap.ui.screens.home.EventListScreen
@@ -65,17 +66,17 @@ fun MiniMapNav(
                     }
                 )
             }
-//            entry<EventDetail> { key ->
-//                EventDetailScreen(
-//                    venueId = key.venueId,
-//                    onBackClicked = {
-//                        backStack.removeLastOrNull()
-//                    },
-//                    onMapClicked = { id ->
-//                        backStack.add(Map(venueId = id))
-//                    }
-//                )
-//            }
+            entry<EventDetail> { key ->
+                EventDetailScreen(
+                    venueId = key.venueId,
+                    onBackClicked = {
+                        backStack.removeLastOrNull()
+                    },
+                    onMapClicked = { id ->
+                        backStack.add(MapViewer(venueId = id))
+                    }
+                )
+            }
             entry<QrScanner> {
                 QrScannerScreen(
                     onScannedSuccess = {
