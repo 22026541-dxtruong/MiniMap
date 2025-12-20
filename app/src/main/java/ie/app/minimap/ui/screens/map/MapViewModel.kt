@@ -39,6 +39,12 @@ data class MapEditorUiState(
     val error: String? = null
 )
 
+data class SearchResult(
+    val floor: Floor,
+    val building: Building,
+    val node: NodeWithShape
+)
+
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val mapRepository: MapRepository,
@@ -56,8 +62,8 @@ class MapViewModel @Inject constructor(
     val edges: StateFlow<List<Edge>> = _edges.asStateFlow()
     private val _userPosition = MutableStateFlow<Offset?>(null)
     val userPosition: StateFlow<Offset?> = _userPosition.asStateFlow()
-    private val _searchResult = MutableStateFlow<List<NodeWithShape>>(emptyList())
-    val searchResult: StateFlow<List<NodeWithShape>> = _searchResult.asStateFlow()
+    private val _searchResult = MutableStateFlow<List<SearchResult>>(emptyList())
+    val searchResult: StateFlow<List<SearchResult>> = _searchResult.asStateFlow()
     private val _boothWithVendor = MutableStateFlow<BoothWithVendor?>(null)
     val boothWithVendor = _boothWithVendor.asStateFlow()
 
@@ -199,8 +205,16 @@ class MapViewModel @Inject constructor(
 
     fun getNodesByLabel(label: String) {
         viewModelScope.launch {
-            infoRepository.getShapesByLabel(label, _uiState.value.selectedFloor.id).collect {
-                _searchResult.value = it.filter { nodeWithShape -> nodeWithShape.shape != null }
+            infoRepository.getShapesByLabel(label, _uiState.value.selectedFloor.id).collect { nodes ->
+                _searchResult.value = nodes.filter { nodeWithShape -> nodeWithShape.shape != null }
+                    .map {
+                        val floorResult = _floors.value.first { floor -> floor.id == it.node.floorId }
+                        SearchResult(
+                            floorResult,
+                            _buildings.value.first { building -> building.id == floorResult.buildingId },
+                            it
+                        )
+                    }
             }
         }
     }

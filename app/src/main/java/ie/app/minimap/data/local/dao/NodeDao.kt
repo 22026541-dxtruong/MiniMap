@@ -6,7 +6,6 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import ie.app.minimap.data.local.entity.Node
-import ie.app.minimap.data.local.entity.Shape
 import ie.app.minimap.data.local.relations.NodeWithShape
 import kotlinx.coroutines.flow.Flow
 
@@ -34,6 +33,6 @@ interface NodeDao {
     @Transaction
     @Query("SELECT * FROM nodes " +
             "JOIN shapes ON shapes.node_id = nodes.id " +
-            "WHERE floor_id = :floorId AND type IN ('Room', 'Booth') AND label LIKE '%' || :label || '%'")
-    fun getShapesByLabel(label: String, floorId :Long): Flow<List<NodeWithShape>>
+            "WHERE shapes.venue_id = :venueId AND type IN ('Room', 'Booth') AND label LIKE '%' || :label || '%'")
+    fun getShapesByLabel(label: String, venueId :Long): Flow<List<NodeWithShape>>
 }

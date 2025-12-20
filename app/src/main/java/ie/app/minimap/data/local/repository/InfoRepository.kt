@@ -39,7 +39,7 @@ class InfoRepository @Inject constructor(
     private val eventDao: EventDao
 ) {
 
-    fun getShapesByLabel(label: String, floorId: Long) = nodeDao.getShapesByLabel(label, floorId)
+    fun getShapesByLabel(label: String, venueId: Long) = nodeDao.getShapesByLabel(label, venueId)
 
     suspend fun getBoothWithVendorByNodeId(nodeId: Long) = boothDao.getBoothWithVendorByNodeId(nodeId)
 

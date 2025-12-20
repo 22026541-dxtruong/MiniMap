@@ -271,8 +271,10 @@ fun MapEditorScreen(
                     onSearch = {
                         viewModel.getNodesByLabel(it)
                     },
-                    onClickNode = {
-                        centerNode = it
+                    onClickNode = { building, floor, node ->
+                        viewModel.onBuildingSelected(building)
+                        viewModel.onFloorSelected(floor)
+                        centerNode = node
                     },
                     onExpandedChange = { expandedSearch = it },
                     searchResults = searchResult,
@@ -734,9 +736,9 @@ fun MapTopBar(
     expandedSearch: Boolean = false,
     onExpandedChange: (Boolean) -> Unit = { _ -> },
     onBack: () -> Unit = {},
-    onClickNode: (NodeWithShape) -> Unit = {},
+    onClickNode: (Building, Floor, NodeWithShape) -> Unit = { _, _, _ -> },
     onSearch: (String) -> Unit = { _ -> },
-    searchResults: List<NodeWithShape> = emptyList(),
+    searchResults: List<SearchResult> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     var query by remember { mutableStateOf("") }
@@ -802,15 +804,15 @@ fun MapTopBar(
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
             items(searchResults) { result ->
                 ListItem(
-                    headlineContent = { Text(result.shape!!.label) },
-                    supportingContent = { Text(result.node.type) },
+                    headlineContent = { Text(result.node.shape!!.label) },
+                    supportingContent = { Text("${result.node.node.type}, ${result.building.name}, ${result.floor.name}") },
                     leadingContent = { Icon(Icons.Default.Search, contentDescription = null) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
                             onExpandedChange(false)
-                            query = result.shape!!.label // Đặt query thành kết quả được chọn
-                            onClickNode(result) // Thực hiện tìm kiếm
+                            query = result.node.shape!!.label // Đặt query thành kết quả được chọn
+                            onClickNode(result.building, result.floor, result.node) // Thực hiện tìm kiếm
                             // Không cần cập nhật `expanded` vì nó tự động false khi `query` không rỗng
                         }
                 )
