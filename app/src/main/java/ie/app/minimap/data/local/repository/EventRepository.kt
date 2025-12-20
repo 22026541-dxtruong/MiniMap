@@ -7,9 +7,9 @@ import ie.app.minimap.data.local.dao.VendorDao
 import ie.app.minimap.data.local.dto.EventWithBuildingAndFloor
 import ie.app.minimap.data.local.entity.Booth
 import ie.app.minimap.data.local.entity.Building
+import ie.app.minimap.data.local.entity.Event
 import ie.app.minimap.data.local.entity.Vendor
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 class EventRepository @Inject constructor(
@@ -29,6 +29,17 @@ class EventRepository @Inject constructor(
         return vendorDao.getVendorsByVenueId(venueId)
     }
 
+    suspend fun getBoothsByVenueId(venueId: Long): List<Booth> {
+        return boothDao.getBoothsByVenueId1(venueId)
+    }
+
+    suspend fun deleteEvent(event: Event) {
+        eventDao.delete(event)
+    }
+
+    suspend fun upsert(event: Event) {
+        eventDao.upsert(event)
+    }
 //    fun getEventDetail(eventId: Long): EventWithVendors? {
 //        return eventDao.getEventWithVendors(eventId)
 //    }

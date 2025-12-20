@@ -24,6 +24,8 @@ interface BoothDao {
     @Query("SELECT * from booths WHERE node_id = :nodeId")
     suspend fun getBoothWithVendorByNodeId(nodeId: Long): BoothWithVendor?
 
+    @Query("SELECT * FROM booths WHERE venue_id = :venueId")
+    suspend fun getBoothsByVenueId1(venueId: Long): List<Booth>
     @Upsert
     suspend fun upsert(booth: Booth): Long
 

@@ -1,8 +1,10 @@
 package ie.app.minimap.ui.screens.event
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import ie.app.minimap.data.local.entity.Booth
 import ie.app.minimap.data.local.entity.Vendor
 import ie.app.minimap.data.local.entity.Venue
 import ie.app.minimap.data.local.repository.EventRepository
@@ -12,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import ie.app.minimap.data.local.entity.Event
 
 @HiltViewModel
 class EventDetailViewModel @Inject constructor(
@@ -30,6 +33,9 @@ class EventDetailViewModel @Inject constructor(
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _booths = MutableStateFlow<List<Booth>>(emptyList())
+    val booths: StateFlow<List<Booth>> = _booths
 
     /**
      * Tải thông tin chi tiết của Venue từ Repository
@@ -57,6 +63,34 @@ class EventDetailViewModel @Inject constructor(
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+    fun createEvent(event: Event) {
+        viewModelScope.launch {
+            try {
+                eventRepository.upsert(event)
+                loadEvents(event.venueId)
+            } catch (e: Exception) {
+                Log.e("DB_ERROR", "Không thể tạo event: ${e.message}")
+            }
+        }
+    }
+
+    fun deleteEvent(event: Event) {
+        viewModelScope.launch {
+            try {
+                eventRepository.deleteEvent(event)
+                loadEvents(event.venueId)
+                Log.d("ViewModel", "Xóa thành công event: ${event.name}")
+            } catch (e: Exception) {
+                Log.e("ViewModel", "Lỗi khi xóa event", e)
+            }
+        }
+    }
+
+    fun loadBooths(venueId: Long) {
+        viewModelScope.launch {
+            _booths.value = eventRepository.getBoothsByVenueId(venueId)
         }
     }
 

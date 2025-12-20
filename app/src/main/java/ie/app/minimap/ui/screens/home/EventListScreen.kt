@@ -627,7 +627,7 @@ val TextGray = Color(0xFF6B7280)
 
 @Composable
 fun DeleteEventDialog(
-    eventName: String = "Tech Expo 2024",
+    eventName: String,
     onDismiss: () -> Unit = {},
     onConfirm: () -> Unit = {}
 ) {

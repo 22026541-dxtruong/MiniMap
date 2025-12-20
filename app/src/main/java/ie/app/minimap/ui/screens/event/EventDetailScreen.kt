@@ -1,6 +1,11 @@
 package ie.app.minimap.ui.screens.event
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -15,8 +20,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -31,6 +39,11 @@ import ie.app.minimap.data.local.dto.EventWithBuildingAndFloor
 import ie.app.minimap.data.local.entity.Event
 import ie.app.minimap.data.local.entity.Venue
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import ie.app.minimap.data.local.entity.Booth
+import ie.app.minimap.ui.screens.home.DeleteEventDialog
+import kotlinx.coroutines.launch
 
 
 // --- 1. Data Models ---
@@ -64,10 +77,18 @@ fun EventDetailScreen(
     viewModel: EventDetailViewModel = hiltViewModel()
 ) {
     val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
+
+    var isOpenDialog by remember { mutableStateOf(false) }
+    var editingEvent by remember { mutableStateOf<Event?>(null) }
+    var isOpenDeleteDialog by remember { mutableStateOf(false) }
+    var eventToDelete by remember { mutableStateOf<Event?>(null) }
+
     LaunchedEffect(venueId) {
         viewModel.loadVenueDetails(venueId)
         viewModel.loadEvents(venueId)
         viewModel.loadVendors(venueId)
+        viewModel.loadBooths(venueId)
     }
 
     val venue by viewModel.venue.collectAsState()
@@ -75,11 +96,55 @@ fun EventDetailScreen(
     val vendors by viewModel.vendors.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val eventsState by viewModel.uiState.collectAsState()
+    val allBooths by viewModel.booths.collectAsState()
+
 
     if (venue == null) {
         SideEffect {
             println("Debug: No venue with venueId = $venueId")
         }
+    }
+    if (isOpenDialog) {
+        EventDialog(
+            idEvent = editingEvent?.id ?: 0L,
+            nameInitial = editingEvent?.name ?: "",
+            startTimeInitial = editingEvent?.startTime ?: "",
+            endTimeInitial = editingEvent?.endTime ?: "",
+            descriptionInitial = editingEvent?.description ?: "",
+            boothIdInitial = editingEvent?.boothId ?: 0L,
+            venueId = venueId,
+            booths = allBooths,
+            onDismiss = {
+                isOpenDialog = false
+                editingEvent = null
+            },
+            onSave = { newEvent ->
+                coroutineScope.launch {
+                    viewModel.createEvent(newEvent)
+                }
+            },
+            onUpdate = { updatedEvent ->
+                coroutineScope.launch {
+                    viewModel.createEvent(updatedEvent)
+                }
+            }
+        )
+    }
+    if (isOpenDeleteDialog && eventToDelete != null) {
+        DeleteEventDialog(
+            eventName = eventToDelete!!.name,
+            onDismiss = {
+                isOpenDeleteDialog = false
+                eventToDelete = null
+            },
+            onConfirm = {
+                coroutineScope.launch {
+                    viewModel.deleteEvent(eventToDelete!!)
+                    isOpenDeleteDialog = false
+                    eventToDelete = null
+                }
+            }
+        )
     }
     // Fakedata
 //    val stands = remember {
@@ -169,7 +234,21 @@ fun EventDetailScreen(
                     Spacer(modifier = Modifier.height(32.dp))
 
                     // 5. Lịch trình sự kiện (Timeline)
-                    ScheduleTimelineNew(eventsState.events)
+                    ScheduleTimelineNew(
+                        events = eventsState.events,
+                        onAddClick = {
+                            editingEvent = null // Reset để dialog hiểu là thêm mới
+                            isOpenDialog = true
+                        },
+                        onEditClick = { eventWithFloor ->
+                            editingEvent = eventWithFloor.event // Gán dữ liệu để sửa
+                            isOpenDialog = true
+                        },
+                        onDeleteClick = { eventWithFloor ->
+                            eventToDelete = eventWithFloor.event
+                            isOpenDeleteDialog = true
+                        }
+                    )
 
                     Spacer(modifier = Modifier.height(20.dp))
                 }
@@ -194,21 +273,34 @@ fun EventBannerNew(venue: Venue?, onBack: () -> Unit) {
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
-        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)))))
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color.Transparent,
+                        Color.Black.copy(alpha = 0.8f)
+                    )
+                )
+            ))
 
         // Nút Back
         Surface(
             onClick = onBack,
             color = Color.Black.copy(alpha = 0.3f),
             shape = CircleShape,
-            modifier = Modifier.padding(12.dp).size(36.dp)
+            modifier = Modifier
+                .padding(12.dp)
+                .size(36.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.ArrowBack, null, tint = Color.White, modifier = Modifier.size(18.dp))
             }
         }
 
-        Column(modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+        Column(modifier = Modifier
+            .align(Alignment.BottomStart)
+            .padding(16.dp)) {
             Surface(color = Color(0xFF13C8EC), shape = RoundedCornerShape(6.dp)) {
                 Text("Đang diễn ra", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
             }
@@ -301,7 +393,9 @@ fun StandItemNew(stand: Vendors) {
             Spacer(modifier = Modifier.height(12.dp))
             Button(
                 onClick = {},
-                modifier = Modifier.height(32.dp).fillMaxWidth(),
+                modifier = Modifier
+                    .height(32.dp)
+                    .fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF13C8EC).copy(alpha = 0.1f)),
                 contentPadding = PaddingValues(0.dp)
             ) {
@@ -312,7 +406,12 @@ fun StandItemNew(stand: Vendors) {
 }
 
 @Composable
-fun ScheduleTimelineNew(events: List<EventWithBuildingAndFloor>) {
+fun ScheduleTimelineNew(
+    events: List<EventWithBuildingAndFloor>,
+    onAddClick: () -> Unit,
+    onEditClick: (EventWithBuildingAndFloor) -> Unit,
+    onDeleteClick: (EventWithBuildingAndFloor) -> Unit
+) {
     val isDark = isSystemInDarkTheme()
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -328,7 +427,7 @@ fun ScheduleTimelineNew(events: List<EventWithBuildingAndFloor>) {
                 fontWeight = FontWeight.Bold,
                 color = if (isDark) Color.White else Color.Black
             )
-            IconButton(onClick = { /* TODO: Mở Dialog thêm lịch trình */ }) {
+            IconButton(onClick = onAddClick) {
                 Icon(Icons.Default.AddCircle, contentDescription = "Thêm", tint = Color(0xFF13C8EC))
             }
         }
@@ -385,13 +484,17 @@ fun ScheduleTimelineNew(events: List<EventWithBuildingAndFloor>) {
                                 Icon(
                                     Icons.Default.Edit,
                                     null,
-                                    Modifier.size(18.dp).clickable { /* Sửa */ },
+                                    Modifier
+                                        .size(18.dp)
+                                        .clickable { onEditClick(item) },
                                     tint = Color.Gray
                                 )
                                 Icon(
                                     Icons.Default.Delete,
                                     null,
-                                    Modifier.size(18.dp).clickable { /* Xóa */ },
+                                    Modifier
+                                        .size(18.dp)
+                                        .clickable { onDeleteClick(item) },
                                     tint = Color(0xFFEF4444)
                                 )
                             }
@@ -402,7 +505,7 @@ fun ScheduleTimelineNew(events: List<EventWithBuildingAndFloor>) {
                         // Sử dụng DetailRow để hiển thị Time và Location
                         DetailRow(
                             icon = Icons.Default.Schedule,
-                            text = item.event.startTime,
+                            text = "${item.event.startTime} - ${item.event.endTime}",
                             tint = Color(0xFF13C8EC) // Làm nổi bật thời gian
                         )
                         DetailRow(
@@ -459,6 +562,235 @@ fun SectionHeaderNew(title: String) {
         Text("Xem tất cả", color = Color(0xFF13C8EC), fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EventDialog(
+    idEvent: Long = 0,
+    nameInitial: String = "",
+    startTimeInitial: String = "",
+    endTimeInitial: String = "",
+    descriptionInitial: String = "",
+    boothIdInitial: Long = 0,
+    venueId: Long,
+    booths: List<Booth>,
+    onDismiss: () -> Unit = {},
+    onUpdate: (event: Event) -> Unit = {},
+    onSave: (event: Event) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    var name by remember { mutableStateOf(nameInitial) }
+    var startTime by remember { mutableStateOf(startTimeInitial) }
+    var endTime by remember { mutableStateOf(endTimeInitial) }
+    var description by remember { mutableStateOf(descriptionInitial) }
+
+    var selectedBooth by remember {
+        mutableStateOf(booths.find { it.id == boothIdInitial })
+    }
+    var expanded by remember { mutableStateOf(false) }
+
+    val primaryViolet = Color(0xFF8B5CF6)
+    val primaryCyan = Color(0xFF13C8EC)
+    val secondaryFuchsia = Color(0xFFD946EF)
+    val gradientBrush = Brush.horizontalGradient(listOf(primaryViolet, secondaryFuchsia))
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .wrapContentHeight()
+                .shadow(elevation = 24.dp, shape = RoundedCornerShape(32.dp))
+                .clip(RoundedCornerShape(32.dp))
+                .background(MaterialTheme.colorScheme.surface)
+        ) {
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            ) {
+                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+            }
+
+            Column(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                Column {
+                    Text(
+                        text = if (idEvent == 0L) "Thêm Lịch trình" else "Sửa Lịch trình",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1F2937)
+                    )
+                    Text(
+                        text = "Điền thông tin chi tiết cho sự kiện dưới đây.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                CustomDialogTextField(name, { name = it }, "Tên sự kiện", Icons.Default.Badge, primaryCyan)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Chọn vị trí (Booth)",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                    )
+
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = selectedBooth?.name ?: "Chọn gian hàng",
+                            onValueChange = {},
+                            readOnly = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            leadingIcon = { Icon(Icons.Default.Storefront, null, tint = primaryCyan) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = primaryCyan,
+                                unfocusedContainerColor = Color(0xFFF3F4F6),
+                                focusedContainerColor = Color.White,
+                                unfocusedBorderColor = Color.Transparent
+                            )
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                            modifier = Modifier.background(Color.White)
+                        ) {
+                            booths.forEach { booth ->
+                                DropdownMenuItem(
+                                    text = { Text(booth.name) },
+                                    onClick = {
+                                        selectedBooth = booth
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        CustomDialogTextField(startTime, { startTime = it }, "Bắt đầu", Icons.Default.Schedule, primaryCyan)
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        CustomDialogTextField(endTime, { endTime = it }, "Kết thúc", Icons.Default.Timer, primaryCyan)
+                    }
+                }
+                CustomDialogTextField(description, { description = it }, "Mô tả", Icons.Default.Edit, primaryCyan, true)
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                val isEnabled = name.isNotBlank() && startTime.isNotBlank() && selectedBooth != null
+                val scale by animateFloatAsState(if (isEnabled) 1f else 0.97f, label = "ButtonScale")
+
+                val buttonBrush = if (isEnabled) {
+                    gradientBrush
+                } else {
+                    SolidColor(Color.LightGray.copy(alpha = 0.4f))
+                }
+
+                Button(
+                    onClick = {
+                        val eventData = Event(
+                            id = idEvent,
+                            boothId = selectedBooth?.id ?: 0L,
+                            venueId = venueId,
+                            name = name,
+                            description = description,
+                            startTime = startTime,
+                            endTime = endTime,
+                            createdAt = System.currentTimeMillis()
+                        )
+                        if (idEvent == 0L) onSave(eventData) else onUpdate(eventData)
+                        onDismiss()
+                    },
+                    enabled = isEnabled,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .graphicsLayer(scaleX = scale, scaleY = scale)
+                        .clip(CircleShape)
+                        .background(buttonBrush), // Truyền Brush thống nhất
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent // Quan trọng: Để background Modifier tự xử lý
+                    ),
+                    contentPadding = PaddingValues()
+                ) {
+                    Text(
+                        text = if (idEvent == 0L) "Tạo sự kiện" else "Lưu thay đổi",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isEnabled) Color.White else Color.Gray
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CustomDialogTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    primaryColor: Color,
+    isMultiline: Boolean = false
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    val borderColor by animateColorAsState(if (isFocused) primaryColor else Color.Transparent, label = "border")
+    val containerColor by animateColorAsState(if (isFocused) Color.White else Color(0xFFF3F4F6), label = "bg")
+    val elevation by animateDpAsState(if (isFocused) 6.dp else 0.dp, label = "shadow")
+
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation, RoundedCornerShape(16.dp))
+            .border(width = 2.dp, color = borderColor, shape = RoundedCornerShape(16.dp)),
+        label = {
+            Text(
+                text = label,
+                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal
+            )
+        },
+        leadingIcon = {
+            Icon(icon, null, tint = if (isFocused) primaryColor else Color.Gray)
+        },
+        interactionSource = interactionSource,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = containerColor,
+            unfocusedContainerColor = containerColor,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            focusedLabelColor = primaryColor,
+            cursorColor = primaryColor
+        ),
+        shape = RoundedCornerShape(16.dp),
+        singleLine = !isMultiline,
+        minLines = if (isMultiline) 3 else 1
+    )
+}
+
 @Preview(showBackground = true, backgroundColor = 0xFF101F22) // Thêm màu nền tối cho khớp thiết kế
 @Composable
 fun EventDetailScreenPreview() {
