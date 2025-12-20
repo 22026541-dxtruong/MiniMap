@@ -194,8 +194,10 @@ fun MapViewerScreen(
                     onSearch = {
                         viewModel.getNodesByLabel(it)
                     },
-                    onClickNode = {
-                        centerNode = it
+                    onClickNode = { building, floor, node ->
+                        viewModel.onBuildingSelected(building)
+                        viewModel.onFloorSelected(floor)
+                        centerNode = node
                         coroutineScope.launch {
                             scaffoldState.bottomSheetState.expand()
                         }
