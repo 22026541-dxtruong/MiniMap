@@ -93,7 +93,7 @@ import ie.app.minimap.data.local.entity.Node
 import ie.app.minimap.data.local.entity.Vendor
 import ie.app.minimap.data.local.relations.BoothWithVendor
 import ie.app.minimap.data.local.relations.NodeWithShape
-import ie.app.minimap.ui.ar.ArView
+import ie.app.minimap.ui.ar.ArViewEditor
 import ie.app.minimap.ui.graph.GraphEditor
 import kotlinx.coroutines.launch
 
@@ -245,8 +245,7 @@ fun MapEditorScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            ArView(
-                editing = true,
+            ArViewEditor(
                 venueId = venueId,
                 building = uiState.selectedBuilding,
                 floor = uiState.selectedFloor,

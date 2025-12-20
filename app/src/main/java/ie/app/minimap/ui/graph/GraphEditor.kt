@@ -670,30 +670,48 @@ fun DrawScope.drawNodes(
     }
 }
 
-fun DrawScope.drawUserPosition(position: Offset?, scale: Float) {
-    if (position == null) return
+fun DrawScope.drawUserPosition(userLocation: Offset?, scale: Float) {
+    if (userLocation == null) return
+    val position = userLocation
 
-    val pulseRadius = 15f / scale // Bán kính vòng tỏa
-    val dotRadius = 10f / scale  // Bán kính chấm người dùng
+    val dotRadius = 10f / scale
 
-    // Vẽ vòng tròn mờ xung quanh (mô phỏng độ chính xác)
+    // 1. Vẽ vòng tròn mờ (Độ chính xác)
     drawCircle(
-        color = Color.Magenta.copy(alpha = 0.3f),
+        color = Color.Magenta.copy(alpha = 0.2f),
         center = position,
-        radius = pulseRadius
+        radius = 25f / scale
     )
 
-    // Vẽ viền trắng cho nổi bật
-    drawCircle(
-        color = Color.White,
-        center = position,
-        radius = dotRadius + 5f
-    )
-
-    // Vẽ chấm chính (Màu Tím hồng để khác biệt với Node xanh dương)
-    drawCircle(
-        color = Color.Magenta,
-        center = position,
-        radius = dotRadius
-    )
+    // 3. Vẽ chấm chính
+    drawCircle(color = Color.White, center = position, radius = dotRadius + (2f/scale))
+    drawCircle(color = Color.Magenta, center = position, radius = dotRadius)
 }
+
+//fun DrawScope.drawUserPosition(position: Offset?, scale: Float) {
+//    if (position == null) return
+//
+//    val pulseRadius = 15f / scale // Bán kính vòng tỏa
+//    val dotRadius = 10f / scale  // Bán kính chấm người dùng
+//
+//    // Vẽ vòng tròn mờ xung quanh (mô phỏng độ chính xác)
+//    drawCircle(
+//        color = Color.Magenta.copy(alpha = 0.3f),
+//        center = position,
+//        radius = pulseRadius
+//    )
+//
+//    // Vẽ viền trắng cho nổi bật
+//    drawCircle(
+//        color = Color.White,
+//        center = position,
+//        radius = dotRadius + 5f
+//    )
+//
+//    // Vẽ chấm chính (Màu Tím hồng để khác biệt với Node xanh dương)
+//    drawCircle(
+//        color = Color.Magenta,
+//        center = position,
+//        radius = dotRadius
+//    )
+//}

@@ -62,7 +62,7 @@ fun MiniMapNav(
             entry<EventListing> {
                 EventListScreen(
                     onVenueClick = { id ->
-                        backStack.add(EventDetail(venueId = id))
+                        backStack.add(VenueDetails(venueId = id))
                     }
                 )
             }

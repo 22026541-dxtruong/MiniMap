@@ -200,16 +200,18 @@ class ArViewModel @Inject constructor(
                 }
             }
         } else {
-            allNodes.forEach { node ->
-                if (node.id !in resolvedNodeIds && node.id !in resolvingNodeIds) {
-                    val predictedWorldPos = calculatePredictedWorldPosition(node, allNodes)
-                    if (predictedWorldPos != null) {
-                        val dist = distance(
-                            cameraPose.tx(), 0f, cameraPose.tz(),
-                            predictedWorldPos.x, 0f, predictedWorldPos.z
-                        )
-                        if (dist < 8.0f) {
-                            resolveNodeIfNotBusy(arSceneView, node)
+            viewModelScope.launch(Dispatchers.Default) {
+                allNodes.forEach { node ->
+                    if (node.id !in resolvedNodeIds && node.id !in resolvingNodeIds) {
+                        val predictedWorldPos = calculatePredictedWorldPosition(node, allNodes)
+                        if (predictedWorldPos != null) {
+                            val dist = distance(
+                                cameraPose.tx(), 0f, cameraPose.tz(),
+                                predictedWorldPos.x, 0f, predictedWorldPos.z
+                            )
+                            if (dist < 8.0f) {
+                                resolveNodeIfNotBusy(arSceneView, node)
+                            }
                         }
                     }
                 }
@@ -303,15 +305,27 @@ class ArViewModel @Inject constructor(
         Offset(x * scaleFactor, y * scaleFactor)
 
     fun updateUserLocationFromWorld(cameraPose: Pose): Offset? {
-        if (referenceAnchorPose == null) return null
-        val (refCloudId, refAnchorPose) = referenceAnchorPose!!
-        val refNode = allNodes.firstOrNull { it.cloudAnchorId == refCloudId } ?: return null
-
+        val (refCloudId, refAnchorPose) = referenceAnchorPose ?: return null
+        val refNode = allNodes.find { it.cloudAnchorId == refCloudId } ?: return null// 1. Lấy Pose tương đối của Camera so với Anchor tham chiếu
+        // Phép tính này đưa camera về không gian cục bộ của Anchor (Anchor-space)
         val relativePose = refAnchorPose.inverse().compose(cameraPose)
-        val dx = relativePose.tx()
-        val dz = relativePose.tz()
 
-        return worldToCanvas(dx, dz) + Offset(refNode.x, refNode.y)
+        // Trong Anchor-space:
+        // tx: di chuyển sang phải/trái so với hướng Anchor lúc host
+        // tz: di chuyển tiến/lùi so với hướng Anchor lúc host
+        val tx = relativePose.tx()
+        val tz = relativePose.tz()
+
+        // 2. Chuyển đổi sang hệ tọa độ Canvas (X, Y)
+        // Giả định: 1m trong AR = 150 pixel trên Canvas
+        val scale = 150f
+
+        // QUAN TRỌNG: Chúng ta map tx -> X và tz -> Y
+        // Nếu bạn thấy đi tiến mà chấm đi xuống, hãy đổi thành -tz * scale
+        val mapX = refNode.x + (tx * scale)
+        val mapY = refNode.y + (tz * scale)
+
+        return Offset(mapX, mapY)
     }
 
     fun onSceneTouched(
