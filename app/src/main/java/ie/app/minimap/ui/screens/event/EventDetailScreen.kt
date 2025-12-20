@@ -74,6 +74,7 @@ fun EventDetailScreen(
     venueId: Long,
     onBackClicked: () -> Unit,
     onMapClicked: (Long) -> Unit,
+    onMapEditClicked: (Long) -> Unit,
     viewModel: EventDetailViewModel = hiltViewModel()
 ) {
     val scrollState = rememberScrollState()
@@ -181,7 +182,19 @@ fun EventDetailScreen(
     }
 
     Scaffold(
-
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { onMapEditClicked(venueId) },
+                containerColor = Color(0xFF13C8EC),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.padding(bottom = 16.dp)
+            ) {
+                Icon(Icons.Default.EditLocationAlt, "Edit Map")
+//                Spacer(Modifier.width(8.dp))
+//                Text("Chỉnh sửa sơ đồ")
+            }
+        }
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -588,12 +601,63 @@ fun EventDialog(
         mutableStateOf(booths.find { it.id == boothIdInitial })
     }
     var expanded by remember { mutableStateOf(false) }
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
+
+    fun formatTime(hour: Int, minute: Int): String {
+        return String.format("%02d:%02d", hour, minute)
+    }
+
+    var pickingTarget by remember { mutableStateOf<String?>(null) } // "start" hoặc "end"
+
+    if (pickingTarget != null) {
+        DateTimePickerComponent(
+            onDateTimeSelected = { dateTime ->
+                if (pickingTarget == "start") startTime = dateTime
+                else endTime = dateTime
+            },
+            onDismiss = { pickingTarget = null }
+        )
+    }
 
     val primaryViolet = Color(0xFF8B5CF6)
     val primaryCyan = Color(0xFF13C8EC)
     val secondaryFuchsia = Color(0xFFD946EF)
     val gradientBrush = Brush.horizontalGradient(listOf(primaryViolet, secondaryFuchsia))
 
+    if (showStartTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = if (startTime.isNotEmpty()) startTime.split(":")[0].toInt() else 12,
+            initialMinute = if (startTime.contains(":")) startTime.split(":")[1].toInt() else 0,
+            is24Hour = true
+        )
+        DialTimePickerDialog(
+            onDismiss = { showStartTimePicker = false },
+            onConfirm = {
+                startTime = formatTime(timePickerState.hour, timePickerState.minute)
+                showStartTimePicker = false
+            }
+        ) {
+            TimePicker(state = timePickerState)
+        }
+    }
+
+    if (showEndTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = if (endTime.isNotEmpty()) endTime.split(":")[0].toInt() else 13,
+            initialMinute = if (endTime.contains(":")) endTime.split(":")[1].toInt() else 0,
+            is24Hour = true
+        )
+        DialTimePickerDialog(
+            onDismiss = { showEndTimePicker = false },
+            onConfirm = {
+                endTime = formatTime(timePickerState.hour, timePickerState.minute)
+                showEndTimePicker = false
+            }
+        ) {
+            TimePicker(state = timePickerState)
+        }
+    }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -684,11 +748,27 @@ fun EventDialog(
                     }
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        CustomDialogTextField(startTime, { startTime = it }, "Bắt đầu", Icons.Default.Schedule, primaryCyan)
+                    Box(modifier = Modifier
+                        .weight(1f)
+                        .clickable { pickingTarget = "start" }
+                    ) {
+                        TimeDisplayBox(
+                            label = "Bắt đầu",
+                            value = startTime,
+                            icon = Icons.Default.CalendarToday,
+                            primaryColor = primaryCyan
+                        )
                     }
-                    Box(modifier = Modifier.weight(1f)) {
-                        CustomDialogTextField(endTime, { endTime = it }, "Kết thúc", Icons.Default.Timer, primaryCyan)
+                    Box(modifier = Modifier
+                        .weight(1f)
+                        .clickable { pickingTarget = "end" }
+                    ) {
+                        TimeDisplayBox(
+                            label = "Kết thúc",
+                            value = endTime,
+                            icon = Icons.Default.Event,
+                            primaryColor = primaryCyan
+                        )
                     }
                 }
                 CustomDialogTextField(description, { description = it }, "Mô tả", Icons.Default.Edit, primaryCyan, true)
@@ -743,6 +823,128 @@ fun EventDialog(
         }
     }
 }
+@Composable
+fun TimeDisplayBox(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    primaryColor: Color
+) {
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.Gray,
+            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp) // Tăng nhẹ chiều cao
+                .background(Color(0xFFF3F4F6), RoundedCornerShape(16.dp))
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = primaryColor, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = value.ifEmpty { "--:-- --/--" },
+                color = if (value.isEmpty()) Color.Gray else Color.Black,
+                fontSize = 13.sp, // Nhỏ lại một chút để vừa cả ngày và giờ
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateTimePickerComponent(
+    onDateTimeSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val datePickerState = rememberDatePickerState()
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    if (!showTimePicker) {
+        // Bước 1: Chọn Ngày
+        DatePickerDialog(
+            onDismissRequest = onDismiss,
+            confirmButton = {
+                TextButton(onClick = { showTimePicker = true }) { Text("Tiếp tục") }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text("Hủy") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    } else {
+        // Bước 2: Chọn Giờ
+        val timePickerState = rememberTimePickerState(is24Hour = true)
+        DialTimePickerDialog(
+            onDismiss = onDismiss,
+            onConfirm = {
+                val date = datePickerState.selectedDateMillis?.let {
+                    val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+                    sdf.format(java.util.Date(it))
+                } ?: ""
+                val time = String.format("%02d:%02d", timePickerState.hour, timePickerState.minute)
+
+                onDateTimeSelected("$time $date") // Lưu dạng "14:30 25/12/2024"
+                onDismiss()
+            }
+        ) {
+            TimePicker(state = timePickerState)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DialTimePickerDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            tonalElevation = 6.dp,
+            modifier = Modifier
+                .width(IntrinsicSize.Min)
+                .height(IntrinsicSize.Min)
+                .background(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surface),
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 20.dp),
+                    text = "Chọn thời gian",
+                    style = MaterialTheme.typography.labelMedium
+                )
+                content()
+                Row(
+                    modifier = Modifier
+                        .height(40.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) { Text("Hủy") }
+                    TextButton(onClick = onConfirm) { Text("OK") }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun CustomDialogTextField(
@@ -789,16 +991,4 @@ fun CustomDialogTextField(
         singleLine = !isMultiline,
         minLines = if (isMultiline) 3 else 1
     )
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF101F22) // Thêm màu nền tối cho khớp thiết kế
-@Composable
-fun EventDetailScreenPreview() {
-    MiniMapTheme {
-        EventDetailScreen(
-            venueId = 1L, // Truyền ID giả
-            onBackClicked = { /* Không làm gì trong preview */ },
-            onMapClicked = { /* Không làm gì trong preview */ }
-        )
-    }
 }

@@ -62,7 +62,7 @@ fun MiniMapNav(
             entry<EventListing> {
                 EventListScreen(
                     onVenueClick = { id ->
-                        backStack.add(VenueDetails(venueId = id))
+                        backStack.add(EventDetail(venueId = id))
                     }
                 )
             }
@@ -74,6 +74,9 @@ fun MiniMapNav(
                     },
                     onMapClicked = { id ->
                         backStack.add(MapViewer(venueId = id))
+                    },
+                    onMapEditClicked = { id ->
+                        backStack.add(MapEditor(venueId = id))
                     }
                 )
             }
