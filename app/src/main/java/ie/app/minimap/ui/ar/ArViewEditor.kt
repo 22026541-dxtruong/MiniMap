@@ -10,7 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -60,14 +58,12 @@ import ie.app.minimap.data.local.entity.Node
 
 @SuppressLint("ClickableViewAccessibility")
 @Composable
-fun ArView(
-    editing: Boolean,
+fun ArViewEditor(
     venueId: Long,
     building: Building,
     floor: Floor,
     nodes: List<Node>,
     onMessage: (String) -> Unit,
-    pathNode: List<Node>? = null,
     updateUserLocation: (Offset?) -> Unit = {},
     viewModel: ArViewModel = hiltViewModel(),
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier,
@@ -84,12 +80,6 @@ fun ArView(
     LaunchedEffect(nodes) {
         Log.d("ArViewModel", "${nodes.size}")
         viewModel.updateCloudAnchors(nodes)
-    }
-
-    LaunchedEffect(pathNode) {
-        Log.d("ArView", "pathNode: $pathNode")
-        if (pathNode != null)
-            viewModel.drawPath(arSceneView, pathNode)
     }
     // Lấy LifecycleOwner
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -165,7 +155,6 @@ fun ArView(
 
                     view.scene.setOnTouchListener { hitTestResult, motionEvent ->
                         // Gửi sự kiện chạm đến ViewModel
-                        if (!editing) return@setOnTouchListener false
                         val isMapEmpty = nodes.isEmpty()
                         val isReady = uiState.isLocalized
 
@@ -268,9 +257,8 @@ fun ArView(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Preview
 @Composable
-fun AddAnchorDialog(
+private fun AddAnchorDialog(
     onDismiss: () -> Unit = {},
     onConfirm: (type: String, name: String?, description: String?, vendorName: String?, vendorDescription: String?) -> Unit = { _, _, _, _, _ -> },
 ) {
@@ -289,9 +277,7 @@ fun AddAnchorDialog(
         Node.HALLWAY
     )
 
-    Dialog(
-        onDismissRequest = onDismiss,
-    ) {
+    Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.surface,
@@ -300,9 +286,9 @@ fun AddAnchorDialog(
             Column(
                 modifier = Modifier
                     .padding(20.dp)
-                    .width(IntrinsicSize.Min)
+                    .fillMaxWidth()
+//                    .animateContentSize() // Giúp Dialog co giãn mượt mà
             ) {
-
                 Text(
                     text = "Add Anchor",
                     style = MaterialTheme.typography.titleLarge,
@@ -322,7 +308,6 @@ fun AddAnchorDialog(
                         modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable)
                     )
 
-                    // ExposedDropdownMenu có khả năng xử lý danh sách cuộn tốt hơn
                     ExposedDropdownMenu(
                         expanded = expanded,
                         onDismissRequest = { expanded = false }
@@ -333,6 +318,11 @@ fun AddAnchorDialog(
                                 onClick = {
                                     selectedType = selectionOption
                                     expanded = false
+                                    // Reset fields khi đổi loại để mượt hơn
+                                    name = ""
+                                    description = ""
+                                    vendorName = ""
+                                    vendorDescription = ""
                                 },
                                 contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
                             )
@@ -340,72 +330,27 @@ fun AddAnchorDialog(
                     }
                 }
 
+                // Tách biệt nội dung dựa trên loại đã chọn
                 AnimatedContent(
                     targetState = selectedType,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(IntrinsicSize.Min)
-                ) {
-                    when (it) {
+                    label = "FieldTransition",
+                    modifier = Modifier.fillMaxWidth()
+                ) { targetType ->
+                    when (targetType) {
                         Node.ROOM -> {
-                            OutlinedTextField(
-                                value = name,
-                                onValueChange = { name = it },
-                                label = { Text("Room's name") },
-                                singleLine = true,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 16.dp)
+                            RoomAnchorFields(
+                                name = name,
+                                onNameChange = { name = it }
                             )
                         }
 
                         Node.BOOTH -> {
-                            Column {
-                                Text(
-                                    "Booth",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.padding(top = 16.dp)
-                                )
-                                OutlinedTextField(
-                                    value = name,
-                                    onValueChange = { name = it },
-                                    label = { Text("Booth's Name") },
-                                    singleLine = true,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                )
-
-                                OutlinedTextField(
-                                    value = description,
-                                    onValueChange = { description = it },
-                                    minLines = 2,
-                                    label = { Text("Booth's Description") },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                )
-                                Text(
-                                    "Vendor",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.padding(top = 16.dp)
-                                )
-                                OutlinedTextField(
-                                    value = vendorName,
-                                    onValueChange = { vendorName = it },
-                                    label = { Text("Vendor's Name") },
-                                    singleLine = true,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                )
-
-                                OutlinedTextField(
-                                    value = vendorDescription,
-                                    onValueChange = { vendorDescription = it },
-                                    minLines = 2,
-                                    label = { Text("Vendor's Description") },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                )
-                            }
+                            BoothAnchorFields(
+                                name = name, onNameChange = { name = it },
+                                description = description, onDescriptionChange = { description = it },
+                                vendorName = vendorName, onVendorNameChange = { vendorName = it },
+                                vendorDescription = vendorDescription, onVendorDescriptionChange = { vendorDescription = it }
+                            )
                         }
                     }
                 }
@@ -413,7 +358,7 @@ fun AddAnchorDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp),
+                        .padding(top = 8.dp),
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
@@ -425,28 +370,14 @@ fun AddAnchorDialog(
                     TextButton(
                         onClick = {
                             when (selectedType) {
-                                Node.ROOM -> {
-                                    onConfirm(selectedType, name, null, null, null)
-                                }
-
-                                Node.BOOTH -> {
-                                    onConfirm(
-                                        selectedType,
-                                        name,
-                                        description,
-                                        vendorName,
-                                        vendorDescription
-                                    )
-                                }
-
-                                else -> {
-                                    onConfirm(selectedType, null, null, null, null)
-                                }
+                                Node.ROOM -> onConfirm(selectedType, name, null, null, null)
+                                Node.BOOTH -> onConfirm(selectedType, name, description, vendorName, vendorDescription)
+                                else -> onConfirm(selectedType, null, null, null, null)
                             }
                         },
                         enabled = when (selectedType) {
                             Node.ROOM -> name.isNotBlank()
-                            Node.BOOTH -> name.isNotBlank() && description.isNotBlank()
+                            Node.BOOTH -> name.isNotBlank() && description.isNotBlank() && vendorName.isNotBlank()
                             else -> true
                         }
                     ) {
@@ -455,5 +386,52 @@ fun AddAnchorDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RoomAnchorFields(
+    name: String,
+    onNameChange: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = name,
+        onValueChange = onNameChange,
+        label = { Text("Room's Name") },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp)
+    )
+}
+
+@Composable
+private fun BoothAnchorFields(
+    name: String, onNameChange: (String) -> Unit,
+    description: String, onDescriptionChange: (String) -> Unit,
+    vendorName: String, onVendorNameChange: (String) -> Unit,
+    vendorDescription: String, onVendorDescriptionChange: (String) -> Unit
+) {
+    Column(modifier = Modifier.padding(vertical = 16.dp)) {
+        Text("Booth Info", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(
+            value = name, onValueChange = onNameChange,
+            label = { Text("Booth's Name") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = description, onValueChange = onDescriptionChange,
+            label = { Text("Booth's Description") }, minLines = 2, modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Text("Vendor Info", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(
+            value = vendorName, onValueChange = onVendorNameChange,
+            label = { Text("Vendor's Name") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = vendorDescription, onValueChange = onVendorDescriptionChange,
+            label = { Text("Vendor's Description") }, minLines = 2, modifier = Modifier.fillMaxWidth()
+        )
     }
 }

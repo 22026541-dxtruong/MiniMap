@@ -56,7 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import ie.app.minimap.R
 import ie.app.minimap.data.local.relations.NodeWithShape
-import ie.app.minimap.ui.ar.ArView
+import ie.app.minimap.ui.ar.ArViewViewer
 import ie.app.minimap.ui.graph.GraphViewer
 import kotlinx.coroutines.launch
 
@@ -170,11 +170,7 @@ fun MapViewerScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            ArView(
-                editing = false,
-                venueId = venueId,
-                building = uiState.selectedBuilding,
-                floor = uiState.selectedFloor,
+            ArViewViewer(
                 nodes = nodes,
                 pathNode = pathOffsetAndNode?.second,
                 onMessage = { message ->

@@ -33,7 +33,7 @@ class ArSessionManager @Inject constructor() {
         if (arSession == null) {
             Log.d(TAG, "Creating new AR Session")
             try {
-                arSession = Session(context).apply {
+                arSession = Session(context.applicationContext).apply {
                     val config = Config(this).apply {
                         updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
                         planeFindingMode = Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL
