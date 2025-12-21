@@ -1,5 +1,6 @@
 package ie.app.minimap.ui.screens.map
 
+import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -250,61 +251,61 @@ class MapViewModel @Inject constructor(
     }
 
     // 1. Hàm tìm đường chính (đã tối ưu)
-    fun findPathToNode(targetNode: Node) {
-        val currentUserPos = _userPosition.value ?: return
-        val allNodes = _nodes.value.filter { it.type != Node.HALLWAY }
-        val allEdges = _edges.value
-
-        val connectedNodeIds = allEdges.flatMap { listOf(it.fromNode, it.toNode) }.toSet()
-
-        // Xử lý node đích (nếu đích không nằm trên đường đi thì tìm điểm kết nối gần nhất)
-        val endGatewayNode = if (targetNode.id in connectedNodeIds) {
-            targetNode
-        } else {
-            allNodes
-                .filter { it.id in connectedNodeIds && it.id != targetNode.id }
-                .minByOrNull { calculateDistance(Offset(targetNode.x, targetNode.y), it) }
-                ?: return
-        }
-
-        // --- BƯỚC 1: Chạy Dijkstra TỪ ĐÍCH ra toàn bản đồ ---
-        // Kết quả trả về map chứa node trước đó (previous) và khoảng cách (distances)
-        val dijkstraResult = runDijkstraFullMap(endGatewayNode.id, allNodes, allEdges)
-        val distancesToTarget = dijkstraResult.distances
-        val pathTree = dijkstraResult.previous
-
-        // --- BƯỚC 2: Tìm điểm bắt đầu tối ưu nhất ---
-        // Duyệt qua các node có thể kết nối, tìm node mà: (User đi bộ đến đó + Từ đó về đích) là nhỏ nhất
-        val bestStartNode = allNodes
-            .filter { it.id in connectedNodeIds } // Chỉ xét node có kết nối
-            // Lọc sơ bộ: Chỉ xét các node trong bán kính hợp lý (ví dụ 10-20m) để tối ưu vòng lặp
-            // Nếu map nhỏ thì không cần filter này, duyệt allNodes cũng rất nhanh.
-            .minByOrNull { node ->
-                val distFromUserToNode = calculateDistance(currentUserPos, node)
-                val distFromNodeToTarget = distancesToTarget[node.id] ?: Float.MAX_VALUE
-
-                if (distFromNodeToTarget == Float.MAX_VALUE) Float.MAX_VALUE
-                else distFromUserToNode + distFromNodeToTarget
-            }
-
-        if (bestStartNode == null) return
-
-        // --- BƯỚC 3: Truy vết lại đường đi (Reconstruct Path) ---
-        // Lưu ý: pathTree đang lưu dạng: Node hiện tại -> Node tiếp theo về phía đích
-        val pathNodes = reconstructPath(bestStartNode.id, endGatewayNode.id, allNodes, pathTree)
-
-        // --- BƯỚC 4: Tạo danh sách tọa độ để vẽ ---
-        val pathOffsets = mutableListOf<Offset>()
-        pathOffsets.add(currentUserPos) // Điểm 1: Vị trí người dùng
-        pathOffsets.addAll(pathNodes.map { Offset(it.x, it.y) }) // Các điểm trên đồ thị
-
-        // Thêm điểm đích cuối cùng
-        if (endGatewayNode.id != targetNode.id || pathOffsets.size == 1) {
-            pathOffsets.add(Offset(targetNode.x, targetNode.y))
-        }
-
-        _pathOffsetAndNode.value = Pair(pathOffsets, pathNodes)
-    }
+//    fun findPathToNode(targetNode: Node) {
+//        val currentUserPos = _userPosition.value ?: return
+//        val allNodes = _nodes.value.filter { it.type != Node.HALLWAY }
+//        val allEdges = _edges.value
+//
+//        val connectedNodeIds = allEdges.flatMap { listOf(it.fromNode, it.toNode) }.toSet()
+//
+//        // Xử lý node đích (nếu đích không nằm trên đường đi thì tìm điểm kết nối gần nhất)
+//        val endGatewayNode = if (targetNode.id in connectedNodeIds) {
+//            targetNode
+//        } else {
+//            allNodes
+//                .filter { it.id in connectedNodeIds && it.id != targetNode.id }
+//                .minByOrNull { calculateDistance(Offset(targetNode.x, targetNode.y), it) }
+//                ?: return
+//        }
+//
+//        // --- BƯỚC 1: Chạy Dijkstra TỪ ĐÍCH ra toàn bản đồ ---
+//        // Kết quả trả về map chứa node trước đó (previous) và khoảng cách (distances)
+//        val dijkstraResult = runDijkstraFullMap(endGatewayNode.id, allNodes, allEdges)
+//        val distancesToTarget = dijkstraResult.distances
+//        val pathTree = dijkstraResult.previous
+//
+//        // --- BƯỚC 2: Tìm điểm bắt đầu tối ưu nhất ---
+//        // Duyệt qua các node có thể kết nối, tìm node mà: (User đi bộ đến đó + Từ đó về đích) là nhỏ nhất
+//        val bestStartNode = allNodes
+//            .filter { it.id in connectedNodeIds } // Chỉ xét node có kết nối
+//            // Lọc sơ bộ: Chỉ xét các node trong bán kính hợp lý (ví dụ 10-20m) để tối ưu vòng lặp
+//            // Nếu map nhỏ thì không cần filter này, duyệt allNodes cũng rất nhanh.
+//            .minByOrNull { node ->
+//                val distFromUserToNode = calculateDistance(currentUserPos, node)
+//                val distFromNodeToTarget = distancesToTarget[node.id] ?: Float.MAX_VALUE
+//
+//                if (distFromNodeToTarget == Float.MAX_VALUE) Float.MAX_VALUE
+//                else distFromUserToNode + distFromNodeToTarget
+//            }
+//
+//        if (bestStartNode == null) return
+//
+//        // --- BƯỚC 3: Truy vết lại đường đi (Reconstruct Path) ---
+//        // Lưu ý: pathTree đang lưu dạng: Node hiện tại -> Node tiếp theo về phía đích
+//        val pathNodes = reconstructPath(bestStartNode.id, endGatewayNode.id, allNodes, pathTree)
+//
+//        // --- BƯỚC 4: Tạo danh sách tọa độ để vẽ ---
+//        val pathOffsets = mutableListOf<Offset>()
+//        pathOffsets.add(currentUserPos) // Điểm 1: Vị trí người dùng
+//        pathOffsets.addAll(pathNodes.map { Offset(it.x, it.y) }) // Các điểm trên đồ thị
+//
+//        // Thêm điểm đích cuối cùng
+//        if (endGatewayNode.id != targetNode.id || pathOffsets.size == 1) {
+//            pathOffsets.add(Offset(targetNode.x, targetNode.y))
+//        }
+//
+//        _pathOffsetAndNode.value = Pair(pathOffsets, pathNodes)
+//    }
 
     // 2. Class chứa kết quả Dijkstra toàn cục
     data class DijkstraResult(
@@ -378,88 +379,58 @@ class MapViewModel @Inject constructor(
         return path
     }
 
-//    fun findPathToNode(targetNode: Node) {
-//        val currentUserPos = _userPosition.value ?: return
-//        val allNodes = _nodes.value.filter { it.type != Node.HALLWAY }
-//        val allEdges = _edges.value
-//
-//        val connectedNodeIds = allEdges.flatMap { listOf(it.fromNode, it.toNode) }.toSet()
-//
-//        val startNode = allNodes
-//            .filter { it.id in connectedNodeIds }
-//            .minByOrNull { calculateDistance(currentUserPos, it) }
-//            ?: return
-//
-//        val endGatewayNode = if (targetNode.id in connectedNodeIds) {
-//            targetNode
-//        } else {
-//            allNodes
-//                .filter { it.id in connectedNodeIds && it.id != targetNode.id }
-//                .minByOrNull {
-//                    calculateDistance(
-//                        Offset(
-//                            targetNode.x,
-//                            targetNode.y
-//                        ), it
-//                    )
-//                }
-//                ?: startNode
-//        }
-//
-//        // Thay vì lấy 1 node, ta lấy Top 3 node gần người dùng nhất.
-//        val candidateStartNodes = allNodes
-//            .filter { it.id in connectedNodeIds }
-//            .map { node ->
-//                val dist = calculateDistance(currentUserPos, node)
-//                node to dist
-//            }
-//            .sortedBy { it.second } // Sắp xếp theo khoảng cách tăng dần
-//            .take(3) // Lấy 3 ứng viên tốt nhất
-//
-//        if (candidateStartNodes.isEmpty()) return
-//
-//        // 3. Chạy thuật toán tìm đường cho từng ứng viên và chọn đường tối ưu nhất
-//        var bestPath: List<Node> = emptyList()
-//        var minTotalCost = Float.MAX_VALUE
-//
-//        for ((startNode, distUserToStart) in candidateStartNodes) {
-//            // Chạy Dijkstra từ ứng viên này đến đích
-//            val pathNodes = runDijkstra(startNode.id, endGatewayNode.id, allNodes, allEdges)
-//
-//            if (pathNodes.isNotEmpty()) {
-//                // Tính độ dài của đường đi trên đồ thị
-//                val pathDistance = calculatePathDistance(pathNodes, allEdges)
-//
-//                // Tổng chi phí = Đi bộ đến node đầu + Đường đi trên đồ thị
-//                val totalCost = distUserToStart + pathDistance
-//
-//                // Cập nhật nếu tìm được đường ngắn hơn
-//                if (totalCost < minTotalCost) {
-//                    minTotalCost = totalCost
-//                    bestPath = pathNodes
-//                }
-//            }
-//        }
-//
-//        if (bestPath.isEmpty()) {
-//            // Xử lý trường hợp không tìm thấy đường
-//            _pathOffsetAndNode.value = null
-//            return
-//        }
-//
-//        val pathOffsets = mutableListOf<Offset>()
-//        pathOffsets.add(currentUserPos)
-//        pathOffsets.addAll(bestPath.map { Offset(it.x, it.y) })
-//
-//        if (endGatewayNode.id != targetNode.id) {
-//            pathOffsets.add(Offset(targetNode.x, targetNode.y))
-//        } else if (pathOffsets.isEmpty()) {
-//            pathOffsets.add(Offset(targetNode.x, targetNode.y))
-//        }
-//
-//        _pathOffsetAndNode.value = Pair(pathOffsets, bestPath)
-//    }
+    fun findPathToNode(targetNode: Node) {
+        val currentUserPos = _userPosition.value ?: return
+        val allNodes = _nodes.value.filter { it.type != Node.HALLWAY }
+        val allEdges = _edges.value
 
+        // --- BƯỚC 1: TÌM ĐIỂM VÀO (START NODE) ---
+        // Lấy tất cả các node ĐANG tham gia vào mạng lưới (có ít nhất 1 cạnh nối)
+        val connectedNodeIds = allEdges.flatMap { listOf(it.fromNode, it.toNode) }.toSet()
+
+        // Tìm node trong mạng lưới gần người dùng nhất
+        val startNode = allNodes
+            .filter { it.id in connectedNodeIds }
+            .minByOrNull { calculateDistance(currentUserPos, it) }
+        // Nếu không có node nào trong mạng lưới, trả về đường thẳng trực tiếp
+            ?: return
+
+        // --- BƯỚC 2: TÌM ĐIỂM RA (END GATEWAY) ---
+        // Nếu targetNode đã nằm trong mạng lưới rồi thì nó chính là đích
+        // Nếu targetNode bị cô lập (không có cạnh), ta tìm node trong mạng lưới gần nó nhất để làm "cửa ngõ"
+        val endGatewayNode = if (targetNode.id in connectedNodeIds) {
+            targetNode
+        } else {
+            allNodes
+                .filter { it.id in connectedNodeIds && it.id != targetNode.id } // Trừ chính nó ra
+                .minByOrNull { calculateDistance(Offset(targetNode.x, targetNode.y), it) }
+                ?: startNode // Fallback: nếu ko tìm được thì quay về start
+        }
+
+        // --- BƯỚC 3: DIJKSTRA (VÔ HƯỚNG) ---
+        val pathNodes = runDijkstra(startNode.id, endGatewayNode.id, allNodes, allEdges)
+
+        // --- BƯỚC 4: TỔNG HỢP ĐƯỜNG ĐI (OFFSET) ---
+        val pathOffsets = mutableListOf<Offset>()
+
+        // 4a. Từ vị trí thực của User -> Node bắt đầu (Start Node)
+        pathOffsets.add(currentUserPos)
+
+        // 4b. Các node trong đồ thị
+        pathOffsets.addAll(pathNodes.map { Offset(it.x, it.y) })
+
+        // 4c. Từ Node cửa ngõ (Gateway) -> Vị trí Node đích thực sự (nếu khác nhau)
+        // Đây là đoạn "đi bộ" từ mạng lưới đến cái ghế/bàn cụ thể
+        if (endGatewayNode.id != targetNode.id) {
+            pathOffsets.add(Offset(targetNode.x, targetNode.y))
+        } else if (pathOffsets.isEmpty()) {
+            // Trường hợp User đang đứng ngay tại đích hoặc rất gần
+            pathOffsets.add(Offset(targetNode.x, targetNode.y))
+        }
+        Log.d("MapViewModel", "Path offsets: ${pathNodes.map { it.id }}")
+
+        _pathOffsetAndNode.value = Pair(pathOffsets, pathNodes)
+    }
     fun clearPath() {
         _pathOffsetAndNode.value = null
     }

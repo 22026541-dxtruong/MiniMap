@@ -31,8 +31,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ar.sceneform.ArSceneView
-import com.google.ar.sceneform.ux.FootprintSelectionVisualizer
-import com.google.ar.sceneform.ux.TransformationSystem
 import ie.app.minimap.data.local.entity.Node
 
 @SuppressLint("ClickableViewAccessibility", "LocalContextResourcesRead")
@@ -47,7 +45,6 @@ fun ArViewViewer(
 ) {
 
     val context = LocalContext.current
-    // Lấy LifecycleOwner
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsState()
 
@@ -57,16 +54,9 @@ fun ArViewViewer(
 
     val arSceneView = remember {
         ArSceneView(context).apply {
-            planeRenderer.isVisible = true
-            planeRenderer.isEnabled = true
+            planeRenderer.isVisible = false // Tắt plane renderer trong chế độ viewer để mượt hơn
+            planeRenderer.isEnabled = false
         }
-    }
-
-    val transformationSystem = remember {
-        TransformationSystem(
-            context.resources.displayMetrics,
-            FootprintSelectionVisualizer()
-        )
     }
 
     LaunchedEffect(nodes) {
@@ -85,8 +75,6 @@ fun ArViewViewer(
         }
     }
 
-    // Chúng ta cần quản lý vòng đời của ArSceneView (resume, pause, destroy)
-    // và tạo ra Session ARCore.
     DisposableEffect(lifecycleOwner, arSceneView) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
@@ -99,53 +87,44 @@ fun ArViewViewer(
 
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            viewModel.onDestroyView(arSceneView) // Hủy hoàn toàn khi Composable bị hủy
+            viewModel.onDestroyView(arSceneView)
         }
     }
+
     DisposableEffect(arSceneView) {
         val updateListener = com.google.ar.sceneform.Scene.OnUpdateListener {
-            // Chỉ chạy logic khi hệ thống AR đã sẵn sàng và không loading
             if (!isLoading) {
                 val frame = arSceneView.arFrame
                 if (frame != null) {
                     val cameraPose = frame.camera.pose
-
-                    // Cập nhật vị trí user trên bản đồ 2D
                     val location = viewModel.updateUserLocationFromWorld(cameraPose)
-
                     if (location != null) {
                         updateUserLocation(location)
-                    } else {
-                        // Fallback...
                     }
                 }
-                // Gọi ViewModel update loop
-                viewModel.onUpdate(arSceneView, transformationSystem)
+                viewModel.onUpdate(arSceneView)
             }
         }
 
         arSceneView.scene.addOnUpdateListener(updateListener)
-
         onDispose {
             arSceneView.scene.removeOnUpdateListener(updateListener)
         }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // AndroidView để hiển thị ArSceneView
         AndroidView(
-            factory = { arSceneView }, // Chỉ tạo view
+            factory = { arSceneView },
             modifier = Modifier.fillMaxSize()
         )
 
-        // Hiển thị UI overlay dựa trên trạng thái (State)
         when {
             isLoading -> {
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.5f)) // Nền tối bán trong suốt
-                        .clickable(enabled = false) {} // Chặn touch xuống map khi đang loading
+                        .background(Color.Black.copy(alpha = 0.5f))
+                        .clickable(enabled = false) {}
                 ) {
                     Column(
                         modifier = Modifier.align(Alignment.Center),
@@ -154,7 +133,7 @@ fun ArViewViewer(
                         CircularProgressIndicator(color = Color.White)
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = uiState.message ?: "Đang xử lý...", // Hiện message loading
+                            text = uiState.message ?: "Đang xử lý...",
                             color = Color.White,
                             style = MaterialTheme.typography.bodyLarge
                         )
