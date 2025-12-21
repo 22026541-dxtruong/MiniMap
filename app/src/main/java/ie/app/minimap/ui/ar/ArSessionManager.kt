@@ -1,6 +1,6 @@
 package ie.app.minimap.ui.ar
 
-import android.content.Context
+import android.app.Application
 import android.util.Log
 import com.google.ar.core.Config
 import com.google.ar.core.Session
@@ -10,11 +10,10 @@ import com.google.ar.sceneform.rendering.MaterialFactory
 import com.google.ar.sceneform.rendering.ModelRenderable
 import com.google.ar.sceneform.rendering.ShapeFactory
 import kotlinx.coroutines.future.await
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class ArSessionManager @Inject constructor() {
+class ArSessionManager(
+    private val application: Application
+) {
     private val TAG = "ArSessionManager"
 
     var arSession: Session? = null
@@ -29,11 +28,11 @@ class ArSessionManager @Inject constructor() {
 
     private var isModelsLoading = false
 
-    fun getOrCreateSession(context: Context): Session {
+    fun getOrCreateSession(): Session {
         if (arSession == null) {
             Log.d(TAG, "Creating new AR Session")
             try {
-                arSession = Session(context.applicationContext).apply {
+                arSession = Session(application).apply {
                     val config = Config(this).apply {
                         updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
                         planeFindingMode = Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL
@@ -50,21 +49,21 @@ class ArSessionManager @Inject constructor() {
         return arSession!!
     }
 
-    suspend fun loadModels(context: Context) {
+    suspend fun loadModels() {
         if (modelRenderable != null || isModelsLoading) return
         isModelsLoading = true
         try {
             Log.d(TAG, "Loading 3D Models in Manager")
             val materialRed = MaterialFactory.makeOpaqueWithColor(
-                context,
+                application,
                 Color(android.graphics.Color.RED)
             ).await()
             val materialBlue = MaterialFactory.makeOpaqueWithColor(
-                context,
+                application,
                 Color(android.graphics.Color.BLUE)
             ).await()
             val materialGreen = MaterialFactory.makeOpaqueWithColor(
-                context,
+                application,
                 Color(android.graphics.Color.GREEN)
             ).await()
 
@@ -86,6 +85,12 @@ class ArSessionManager @Inject constructor() {
         } finally {
             isModelsLoading = false
         }
+    }
+
+    fun clearRenderables() {
+        modelRenderable = null
+        hallwayRenderable = null
+        pathRenderable = null
     }
 
     fun destroySession() {

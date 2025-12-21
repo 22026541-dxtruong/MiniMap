@@ -203,16 +203,23 @@ class MapViewModel @Inject constructor(
         _userPosition.value = offset
     }
 
-    fun getNodesByLabel(label: String) {
+    fun getNodesByLabel(label: String, venueId: Long) {
         viewModelScope.launch {
-            infoRepository.getShapesByLabel(label, _uiState.value.selectedFloor.id).collect { nodes ->
-                _searchResult.value = nodes.filter { nodeWithShape -> nodeWithShape.shape != null }
-                    .map {
-                        val floorResult = _floors.value.first { floor -> floor.id == it.node.floorId }
+            infoRepository.getShapesByLabel(label, venueId).collect { nodes ->
+                _searchResult.value =
+                    nodes.mapNotNull { nodeWithShape ->
+                        val floorResult =
+                            _floors.value.firstOrNull { it.id == nodeWithShape.node.floorId }
+                                ?: return@mapNotNull null
+
+                        val buildingResult =
+                            _buildings.value.firstOrNull { it.id == floorResult.buildingId }
+                                ?: return@mapNotNull null
+
                         SearchResult(
-                            floorResult,
-                            _buildings.value.first { building -> building.id == floorResult.buildingId },
-                            it
+                            floor = floorResult,
+                            building = buildingResult,
+                            node = nodeWithShape
                         )
                     }
             }

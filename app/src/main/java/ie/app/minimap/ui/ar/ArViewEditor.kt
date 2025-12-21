@@ -33,9 +33,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,11 +54,13 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ar.core.Plane
 import com.google.ar.core.Pose
 import com.google.ar.sceneform.ArSceneView
+import com.google.ar.sceneform.ux.FootprintSelectionVisualizer
+import com.google.ar.sceneform.ux.TransformationSystem
 import ie.app.minimap.data.local.entity.Building
 import ie.app.minimap.data.local.entity.Floor
 import ie.app.minimap.data.local.entity.Node
 
-@SuppressLint("ClickableViewAccessibility")
+@SuppressLint("ClickableViewAccessibility", "LocalContextResourcesRead")
 @Composable
 fun ArViewEditor(
     venueId: Long,
@@ -70,27 +74,74 @@ fun ArViewEditor(
 ) {
 
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val uiState by viewModel.uiState.collectAsState()
+
+    var openDialog by remember { mutableStateOf(false) }
+    var pendingHitPose by remember { mutableStateOf<Pose?>(null) }
+    val currentNodes by rememberUpdatedState(nodes)
+    val currentUiState by rememberUpdatedState(uiState)
+
+    val isLoading by remember { derivedStateOf { uiState.loading } }
+    val errorMessage by remember { derivedStateOf { uiState.error } }
+    val currentMessage by remember { derivedStateOf { uiState.message } }
+
     val arSceneView = remember {
         ArSceneView(context).apply {
             planeRenderer.isVisible = true
             planeRenderer.isEnabled = true
+            scene.setOnTouchListener { _, motionEvent ->
+                // Gửi sự kiện chạm đến ViewModel
+                val isMapEmpty = currentNodes.isEmpty()
+                val isReady = currentUiState.isLocalized
+
+                if (!isReady && !isMapEmpty) {
+                    // Nếu chưa định vị mà map đã có dữ liệu -> Chặn và báo lỗi
+                    if (motionEvent.action == MotionEvent.ACTION_UP) {
+                        Toast.makeText(context, "⚠️ Vui lòng quét xung quanh để định vị trước khi chỉnh sửa!", Toast.LENGTH_SHORT).show()
+                    }
+                    return@setOnTouchListener true // Chặn event
+                }
+
+                if (motionEvent.action == MotionEvent.ACTION_UP) {
+                    val frame = arFrame ?: return@setOnTouchListener true
+
+                    // Hit test màn hình tại vị trí chạm
+                    val hits = frame.hitTest(motionEvent)
+
+                    // Tìm plane hợp lệ
+                    val hit = hits.firstOrNull { hitResult ->
+                        val trackable = hitResult.trackable
+                        trackable is Plane && trackable.isPoseInPolygon(hitResult.hitPose)
+                    }
+
+                    if (hit != null) {
+                        // Lưu event và mở dialog
+                        pendingHitPose = hit.hitPose
+                        openDialog = true
+                    }
+                }
+
+                true // Đã xử lý
+            }
         }
+    }
+
+    val transformationSystem = remember {
+        TransformationSystem(
+            context.resources.displayMetrics,
+            FootprintSelectionVisualizer()
+        )
     }
 
     LaunchedEffect(nodes) {
         Log.d("ArViewModel", "${nodes.size}")
         viewModel.updateCloudAnchors(nodes)
     }
-    // Lấy LifecycleOwner
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val uiState by viewModel.uiState.collectAsState()
 
-    var openDialog by remember { mutableStateOf(false) }
-    var pendingHitPose by remember { mutableStateOf<Pose?>(null) }
-
-    LaunchedEffect(uiState.message) {
-        if (uiState.message != null) {
-            onMessage(uiState.message!!)
+    LaunchedEffect(currentMessage) {
+        if (currentMessage != null) {
+            onMessage(currentMessage!!)
             viewModel.clearMessage()
         }
     }
@@ -100,7 +151,7 @@ fun ArViewEditor(
     DisposableEffect(lifecycleOwner, arSceneView) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> viewModel.onResume(context, arSceneView)
+                Lifecycle.Event.ON_RESUME -> viewModel.onResume(arSceneView)
                 Lifecycle.Event.ON_PAUSE -> viewModel.onPause(arSceneView)
                 else -> {}
             }
@@ -115,7 +166,7 @@ fun ArViewEditor(
     DisposableEffect(arSceneView) {
         val updateListener = com.google.ar.sceneform.Scene.OnUpdateListener {
             // Chỉ chạy logic khi hệ thống AR đã sẵn sàng và không loading
-            if (uiState.transformationSystem != null && !uiState.loading) {
+            if (!isLoading) {
                 val frame = arSceneView.arFrame
                 if (frame != null) {
                     val cameraPose = frame.camera.pose
@@ -130,7 +181,7 @@ fun ArViewEditor(
                     }
                 }
                 // Gọi ViewModel update loop
-                viewModel.onUpdate(arSceneView)
+                viewModel.onUpdate(arSceneView, transformationSystem)
             }
         }
 
@@ -146,55 +197,52 @@ fun ArViewEditor(
         AndroidView(
             factory = { arSceneView }, // Chỉ tạo view
             modifier = Modifier.fillMaxSize(),
-            update = { view ->
+//            update = { view ->
                 // Khối update này sẽ chạy lại khi `uiState` thay đổi
-                if (uiState.transformationSystem != null && !uiState.loading && uiState.error == null) {
+//                if (!uiState.loading && uiState.error == null) {
                     // Sẵn sàng! Bật renderer và gán listener
-                    view.planeRenderer.isVisible = true
-                    view.planeRenderer.isEnabled = true
+//                    view.scene.setOnTouchListener { hitTestResult, motionEvent ->
+//                        // Gửi sự kiện chạm đến ViewModel
+//                        val isMapEmpty = nodes.isEmpty()
+//                        val isReady = uiState.isLocalized
+//
+//                        if (!isReady && !isMapEmpty) {
+//                            // Nếu chưa định vị mà map đã có dữ liệu -> Chặn và báo lỗi
+//                            if (motionEvent.action == MotionEvent.ACTION_UP) {
+//                                Toast.makeText(context, "⚠️ Vui lòng quét xung quanh để định vị trước khi chỉnh sửa!", Toast.LENGTH_SHORT).show()
+//                            }
+//                            return@setOnTouchListener true // Chặn event
+//                        }
+//
+//                        if (motionEvent.action == MotionEvent.ACTION_UP) {
+//                            val frame = view.arFrame ?: return@setOnTouchListener true
+//
+//                            // Hit test màn hình tại vị trí chạm
+//                            val hits = frame.hitTest(motionEvent)
+//
+//                            // Tìm plane hợp lệ
+//                            val hit = hits.firstOrNull { hitResult ->
+//                                val trackable = hitResult.trackable
+//                                trackable is Plane && trackable.isPoseInPolygon(hitResult.hitPose)
+//                            }
+//
+//                            if (hit != null) {
+//                                // Lưu event và mở dialog
+//                                pendingHitPose = hit.hitPose
+//                                openDialog = true
+//                            }
+//                        }
+//
+//                        true // Đã xử lý
+//                    }
 
-                    view.scene.setOnTouchListener { hitTestResult, motionEvent ->
-                        // Gửi sự kiện chạm đến ViewModel
-                        val isMapEmpty = nodes.isEmpty()
-                        val isReady = uiState.isLocalized
-
-                        if (!isReady && !isMapEmpty) {
-                            // Nếu chưa định vị mà map đã có dữ liệu -> Chặn và báo lỗi
-                            if (motionEvent.action == MotionEvent.ACTION_UP) {
-                                Toast.makeText(context, "⚠️ Vui lòng quét xung quanh để định vị trước khi chỉnh sửa!", Toast.LENGTH_SHORT).show()
-                            }
-                            return@setOnTouchListener true // Chặn event
-                        }
-
-                        if (motionEvent.action == MotionEvent.ACTION_UP) {
-                            val frame = view.arFrame ?: return@setOnTouchListener true
-
-                            // Hit test màn hình tại vị trí chạm
-                            val hits = frame.hitTest(motionEvent)
-
-                            // Tìm plane hợp lệ
-                            val hit = hits.firstOrNull { hitResult ->
-                                val trackable = hitResult.trackable
-                                trackable is Plane && trackable.isPoseInPolygon(hitResult.hitPose)
-                            }
-
-                            if (hit != null) {
-                                // Lưu event và mở dialog
-                                pendingHitPose = hit.hitPose
-                                openDialog = true
-                            }
-                        }
-
-                        true // Đã xử lý
-                    }
-
-                }
-            }
+//                }
+//            }
         )
 
         // Hiển thị UI overlay dựa trên trạng thái (State)
         when {
-            uiState.loading -> {
+            isLoading -> {
                 Box(
                     Modifier
                         .fillMaxSize()
@@ -208,7 +256,7 @@ fun ArViewEditor(
                         CircularProgressIndicator(color = Color.White)
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = uiState.message ?: "Đang xử lý...", // Hiện message loading
+                            text = currentMessage ?: "Đang xử lý...", // Hiện message loading
                             color = Color.White,
                             style = MaterialTheme.typography.bodyLarge
                         )
@@ -216,9 +264,9 @@ fun ArViewEditor(
                 }
             }
 
-            uiState.error != null -> {
+            errorMessage != null -> {
                 Text(
-                    text = "Lỗi: ${uiState.error}",
+                    text = "Lỗi: $errorMessage",
                     color = Color.Red,
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -226,8 +274,7 @@ fun ArViewEditor(
                 )
             }
 
-            uiState.transformationSystem != null && !uiState.loading && uiState.error == null -> {
-
+            else -> {
                 if (openDialog) {
                     AddAnchorDialog(
                         onDismiss = { openDialog = false },
@@ -236,6 +283,7 @@ fun ArViewEditor(
                             if (pendingHitPose != null) {
                                 viewModel.onSceneTouched(
                                     arSceneView,
+                                    transformationSystem,
                                     pose = pendingHitPose!!,
                                     type,
                                     name,

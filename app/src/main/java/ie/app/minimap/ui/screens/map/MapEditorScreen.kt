@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DockedSearchBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -95,6 +96,7 @@ import ie.app.minimap.data.local.relations.BoothWithVendor
 import ie.app.minimap.data.local.relations.NodeWithShape
 import ie.app.minimap.ui.ar.ArViewEditor
 import ie.app.minimap.ui.graph.GraphEditor
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @SuppressLint("ContextCastToActivity")
@@ -114,7 +116,7 @@ fun MapEditorScreen(
     val buildings by viewModel.buildings.collectAsState()
     val floors by viewModel.floors.collectAsState()
     val nodes by viewModel.nodes.collectAsState()
-    val userPosition by viewModel.userPosition.collectAsState()
+    val userPosition = viewModel.userPosition.collectAsState()
     val searchResult by viewModel.searchResult.collectAsState()
     val boothWithVendor by viewModel.boothWithVendor.collectAsState()
     val allVendors by viewModel.allVendors.collectAsState()
@@ -183,7 +185,7 @@ fun MapEditorScreen(
                         userPosition = userPosition,
                         centerNode = centerNode,
                         onCenterConsumed = { centerNode = null },
-                        onSelectionConsumed = { 
+                        onSelectionConsumed = {
                             selectionNode = it
                         },
                         onEditNode = { node ->
@@ -269,7 +271,7 @@ fun MapEditorScreen(
                     expandedSearch = expandedSearch,
                     onBack = onBack,
                     onSearch = {
-                        viewModel.getNodesByLabel(it)
+                        viewModel.getNodesByLabel(it, venueId)
                     },
                     onClickNode = { building, floor, node ->
                         viewModel.onBuildingSelected(building)
@@ -349,10 +351,12 @@ fun MapEditorScreen(
             canDelete = floors.size > 1,
             onDismiss = { showFloorDialog = false },
             onConfirm = { floor ->
-                viewModel.upsertFloor(floor.copy(
-                    venueId = venueId,
-                    buildingId = uiState.selectedBuilding.id
-                ))
+                viewModel.upsertFloor(
+                    floor.copy(
+                        venueId = venueId,
+                        buildingId = uiState.selectedBuilding.id
+                    )
+                )
                 showFloorDialog = false
             },
             onDelete = { floor ->
@@ -387,7 +391,8 @@ fun MapEditorScreen(
             onDismiss = { showRoomDialog = false },
             onConfirm = { label ->
                 viewModel.updateNodeLabel(selectionNode!!, label)
-                selectionNode = selectionNode!!.copy(shape = selectionNode!!.shape?.copy(label = label))
+                selectionNode =
+                    selectionNode!!.copy(shape = selectionNode!!.shape?.copy(label = label))
                 showRoomDialog = false
             }
         )
@@ -438,7 +443,7 @@ fun BoothEditDialog(
     var boothName by remember { mutableStateOf(boothWithVendor.booth.name) }
     var boothDescription by remember { mutableStateOf(boothWithVendor.booth.description) }
     var boothCategory by remember { mutableStateOf(boothWithVendor.booth.category) }
-    
+
     var vendorId by remember { mutableLongStateOf(boothWithVendor.vendor.id) }
     var vendorName by remember { mutableStateOf(boothWithVendor.vendor.name) }
     var vendorDescription by remember { mutableStateOf(boothWithVendor.vendor.description) }
@@ -480,14 +485,14 @@ fun BoothEditDialog(
                     label = { Text("Category") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Vendor Info", style = MaterialTheme.typography.titleSmall)
-                
+
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = vendorName,
-                        onValueChange = { 
+                        onValueChange = {
                             vendorName = it
                             vendorExpanded = true
                             // If user types, we might be creating a new vendor or editing,
@@ -502,7 +507,7 @@ fun BoothEditDialog(
                         modifier = Modifier.fillMaxWidth(),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vendorExpanded) }
                     )
-                    
+
                     DropdownMenu(
                         expanded = vendorExpanded && filteredVendors.isNotEmpty(),
                         onDismissRequest = { vendorExpanded = false },
@@ -655,7 +660,10 @@ fun BuildingDialog(
                         onClick = { onDelete(building) },
                         enabled = canDelete
                     ) {
-                        Text("Delete", color = if (canDelete) MaterialTheme.colorScheme.error else Color.Gray)
+                        Text(
+                            "Delete",
+                            color = if (canDelete) MaterialTheme.colorScheme.error else Color.Gray
+                        )
                     }
                 }
                 TextButton(onClick = onDismiss) {
@@ -691,7 +699,9 @@ fun FloorDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = level,
-                    onValueChange = { if (it.all { char -> char.isDigit() || char == '-' }) level = it },
+                    onValueChange = {
+                        if (it.all { char -> char.isDigit() || char == '-' }) level = it
+                    },
                     label = { Text("Level") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
@@ -701,10 +711,12 @@ fun FloorDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    onConfirm((floor ?: Floor()).copy(
-                        name = name,
-                        level = level.toIntOrNull() ?: 1
-                    ))
+                    onConfirm(
+                        (floor ?: Floor()).copy(
+                            name = name,
+                            level = level.toIntOrNull() ?: 1
+                        )
+                    )
                 },
                 enabled = name.isNotBlank() && level.toIntOrNull() != null
             ) {
@@ -718,7 +730,10 @@ fun FloorDialog(
                         onClick = { onDelete(floor) },
                         enabled = canDelete
                     ) {
-                        Text("Delete", color = if (canDelete) MaterialTheme.colorScheme.error else Color.Gray)
+                        Text(
+                            "Delete",
+                            color = if (canDelete) MaterialTheme.colorScheme.error else Color.Gray
+                        )
                     }
                 }
                 TextButton(onClick = onDismiss) {
@@ -742,6 +757,18 @@ fun MapTopBar(
     modifier: Modifier = Modifier
 ) {
     var query by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(query) {
+        if (query.isBlank()) {
+            isLoading = false
+            return@LaunchedEffect
+        }
+        delay(300)
+        isLoading = true
+        onSearch(query)
+        isLoading = false
+    }
 
     DockedSearchBar(
         inputField = {
@@ -749,10 +776,8 @@ fun MapTopBar(
                 query = query,
                 onQueryChange = {
                     query = it
-                    onExpandedChange(it.isNotBlank())
-                    onSearch(it)
                 }, // Cập nhật query
-                onSearch = { onSearch(it) }, // Thực hiện tìm kiếm
+                onSearch = { onExpandedChange(false) },
                 expanded = expandedSearch,
                 onExpandedChange = onExpandedChange,
                 placeholder = { Text("Search") },
@@ -786,21 +811,24 @@ fun MapTopBar(
         onExpandedChange = onExpandedChange,
         modifier = modifier.padding(16.dp)
     ) {
-        if (searchResults.isEmpty()) {
-            // ➡️ Hiển thị thông báo "Không có kết quả"
+        if (isLoading || (searchResults.isEmpty() && query.isNotBlank())) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "No Results",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                when {
+                    isLoading -> CircularProgressIndicator()
+                    else -> Text(
+                        text = "No Results",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
+
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
             items(searchResults) { result ->
                 ListItem(
@@ -812,7 +840,11 @@ fun MapTopBar(
                         .clickable {
                             onExpandedChange(false)
                             query = result.node.shape!!.label // Đặt query thành kết quả được chọn
-                            onClickNode(result.building, result.floor, result.node) // Thực hiện tìm kiếm
+                            onClickNode(
+                                result.building,
+                                result.floor,
+                                result.node
+                            ) // Thực hiện tìm kiếm
                             // Không cần cập nhật `expanded` vì nó tự động false khi `query` không rỗng
                         }
                 )

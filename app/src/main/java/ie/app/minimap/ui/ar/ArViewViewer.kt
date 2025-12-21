@@ -1,7 +1,6 @@
 package ie.app.minimap.ui.ar
 
 import android.annotation.SuppressLint
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -17,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -31,9 +31,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ar.sceneform.ArSceneView
+import com.google.ar.sceneform.ux.FootprintSelectionVisualizer
+import com.google.ar.sceneform.ux.TransformationSystem
 import ie.app.minimap.data.local.entity.Node
 
-@SuppressLint("ClickableViewAccessibility")
+@SuppressLint("ClickableViewAccessibility", "LocalContextResourcesRead")
 @Composable
 fun ArViewViewer(
     nodes: List<Node>,
@@ -49,6 +51,10 @@ fun ArViewViewer(
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsState()
 
+    val isLoading by remember { derivedStateOf { uiState.loading } }
+    val errorMessage by remember { derivedStateOf { uiState.error } }
+    val currentMessage by remember { derivedStateOf { uiState.message } }
+
     val arSceneView = remember {
         ArSceneView(context).apply {
             planeRenderer.isVisible = true
@@ -56,20 +62,25 @@ fun ArViewViewer(
         }
     }
 
+    val transformationSystem = remember {
+        TransformationSystem(
+            context.resources.displayMetrics,
+            FootprintSelectionVisualizer()
+        )
+    }
+
     LaunchedEffect(nodes) {
-        Log.d("ArViewModel", "${nodes.size}")
         viewModel.updateCloudAnchors(nodes)
     }
 
     LaunchedEffect(pathNode) {
-        Log.d("ArView", "pathNode: $pathNode")
         if (pathNode != null)
             viewModel.drawPath(arSceneView, pathNode)
     }
 
-    LaunchedEffect(uiState.message) {
-        if (uiState.message != null) {
-            onMessage(uiState.message!!)
+    LaunchedEffect(currentMessage) {
+        currentMessage?.let {
+            onMessage(currentMessage!!)
             viewModel.clearMessage()
         }
     }
@@ -79,7 +90,7 @@ fun ArViewViewer(
     DisposableEffect(lifecycleOwner, arSceneView) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> viewModel.onResume(context, arSceneView)
+                Lifecycle.Event.ON_RESUME -> viewModel.onResume(arSceneView)
                 Lifecycle.Event.ON_PAUSE -> viewModel.onPause(arSceneView)
                 else -> {}
             }
@@ -94,7 +105,7 @@ fun ArViewViewer(
     DisposableEffect(arSceneView) {
         val updateListener = com.google.ar.sceneform.Scene.OnUpdateListener {
             // Chỉ chạy logic khi hệ thống AR đã sẵn sàng và không loading
-            if (uiState.transformationSystem != null && !uiState.loading) {
+            if (!isLoading) {
                 val frame = arSceneView.arFrame
                 if (frame != null) {
                     val cameraPose = frame.camera.pose
@@ -109,7 +120,7 @@ fun ArViewViewer(
                     }
                 }
                 // Gọi ViewModel update loop
-                viewModel.onUpdate(arSceneView)
+                viewModel.onUpdate(arSceneView, transformationSystem)
             }
         }
 
@@ -124,20 +135,12 @@ fun ArViewViewer(
         // AndroidView để hiển thị ArSceneView
         AndroidView(
             factory = { arSceneView }, // Chỉ tạo view
-            modifier = Modifier.fillMaxSize(),
-            update = { view ->
-                // Khối update này sẽ chạy lại khi `uiState` thay đổi
-                if (uiState.transformationSystem != null && !uiState.loading && uiState.error == null) {
-                    // Sẵn sàng! Bật renderer và gán listener
-                    view.planeRenderer.isVisible = true
-                    view.planeRenderer.isEnabled = true
-                }
-            }
+            modifier = Modifier.fillMaxSize()
         )
 
         // Hiển thị UI overlay dựa trên trạng thái (State)
         when {
-            uiState.loading -> {
+            isLoading -> {
                 Box(
                     Modifier
                         .fillMaxSize()
@@ -159,9 +162,9 @@ fun ArViewViewer(
                 }
             }
 
-            uiState.error != null -> {
+            errorMessage != null -> {
                 Text(
-                    text = "Lỗi: ${uiState.error}",
+                    text = "Lỗi: $errorMessage",
                     color = Color.Red,
                     modifier = Modifier
                         .align(Alignment.Center)

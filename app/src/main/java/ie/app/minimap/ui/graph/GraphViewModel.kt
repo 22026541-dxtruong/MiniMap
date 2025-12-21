@@ -220,6 +220,7 @@ class GraphViewModel @Inject constructor(
         val node = _selection.value as? Selection.NodeSelected ?: return
         if (node.nodeWithShape.shape != null) return
         val newShape = Shape(
+            venueId = node.nodeWithShape.node.venueId,
             nodeId = node.nodeWithShape.node.id,
             centerX = node.nodeWithShape.node.x,
             centerY = node.nodeWithShape.node.y,

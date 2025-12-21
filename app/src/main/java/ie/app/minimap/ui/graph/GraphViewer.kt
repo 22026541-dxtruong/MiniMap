@@ -2,7 +2,6 @@ package ie.app.minimap.ui.graph
 
 import android.graphics.Paint
 import androidx.compose.ui.graphics.Path
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -10,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -18,11 +18,15 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -39,23 +43,23 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import ie.app.minimap.R
 import ie.app.minimap.data.local.entity.Node
 import ie.app.minimap.data.local.entity.Shape
 import ie.app.minimap.data.local.relations.NodeWithShape
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.filterNotNull
 import kotlin.collections.forEach
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-@Preview
 @Composable
 fun GraphViewer(
     floorId: Long = 1,
-    userPosition: Offset? = null,
+    userPosition: State<Offset?>,
     wayOffset: List<Offset>? = null,
     centerNode: NodeWithShape? = null,
     onCenterConsumed: () -> Unit = { },
@@ -70,10 +74,15 @@ fun GraphViewer(
     val rotation by viewModel.rotation.collectAsState()
     val selection by viewModel.selection.collectAsState()
 
+    val visibleNodes by remember(nodes) {
+        derivedStateOf { nodes.filter { it.node.type != Node.HALLWAY } }
+    }
+
     val textPaint = remember {
         Paint().apply {
             color = Color.White.toArgb()
             textAlign = Paint.Align.CENTER
+            textSize = 28f
         }
     }
 
@@ -82,11 +91,16 @@ fun GraphViewer(
     }
 
     LaunchedEffect(Unit) {
-        if (userPosition != null) viewModel.centerOnNode(userPosition)
+        snapshotFlow { userPosition.value }
+            .filterNotNull()
+            .collect { pos ->
+                viewModel.centerOnNode(pos)
+                this.cancel()
+            }
     }
 
     LaunchedEffect(centerNode) {
-        if (centerNode != null) {
+        centerNode?.let {
             viewModel.centerOnNode(Offset(centerNode.node.x, centerNode.node.y))
             viewModel.updateSelection(Selection.NodeSelected(centerNode))
             onCenterConsumed()
@@ -94,19 +108,51 @@ fun GraphViewer(
     }
 
     LaunchedEffect(selection) {
-        if (selection is Selection.NodeSelected) {
-            onSelectionConsumed((selection as Selection.NodeSelected).nodeWithShape)
-        } else {
-            onSelectionConsumed(null)
-        }
+        val selected = if (selection is Selection.NodeSelected) (selection as Selection.NodeSelected).nodeWithShape else null
+        onSelectionConsumed(selected)
     }
 
     Box(modifier.fillMaxSize()) {
-        Canvas(
+        Spacer(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(0xFFF3F4F6))
                 .onSizeChanged { size -> viewModel.setScreenSize(size) }
+                // --- BẮT ĐẦU VÙNG CACHE ---
+                .drawWithCache {
+                    val sharedPath = Path()
+                    val sharedVertices = ArrayList<Offset>(6) // Đủ cho lục giác
+
+                    onDrawBehind {
+                        withTransform({
+                            translate(left = offset.x, top = offset.y)
+                            rotate(degrees = rotation, pivot = Offset.Zero)
+                            scale(scale = scale, pivot = Offset.Zero)
+                        }) {
+                            // Truyền các object dùng chung vào hàm vẽ
+                            drawShapes(
+                                nodeWithShapes = nodes,
+                                textPaint = textPaint,
+                                draggingState = draggingState,
+                                selection = selection,
+                                scale = scale,
+                                reusablePath = sharedPath,       // <---
+                                reusableVertices = sharedVertices // <---
+                            )
+
+                            // Vẽ Nodes (Dùng list đã lọc visibleNodes)
+                            drawNodes(visibleNodes, draggingState, selection, scale)
+
+                            if (wayOffset != null) {
+                                drawWay(wayOffset, scale, sharedPath) // <--- Tái sử dụng path
+                            }
+                            if (userPosition.value != null) {
+                                drawUserPosition(userPosition.value, scale)
+                            }
+                        }
+                    }
+                }
+                // --- CÁC GESTURE GIỮ NGUYÊN ---
                 .pointerInput(Unit) {
                     detectTransformGestures { centroid, pan, zoom, rotation ->
                         viewModel.onTransform(centroid, pan, zoom, rotation)
@@ -115,22 +161,7 @@ fun GraphViewer(
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = { viewModel.onTap(it) })
                 }
-        ) {
-            withTransform({
-                translate(left = offset.x, top = offset.y)
-                rotate(degrees = rotation, pivot = Offset.Zero)
-                scale(scale = scale, pivot = Offset.Zero)
-            }) {
-                drawShapes(nodes, textPaint, draggingState, selection, scale)
-                drawNodes(nodes.filter { it.node.type != Node.HALLWAY }.map { it.node }, draggingState, selection, scale)
-                if (wayOffset != null) {
-                    drawWay(wayOffset, scale)
-                }
-                if (userPosition != null) {
-                    drawUserPosition(userPosition, scale)
-                }
-            }
-        }
+        )
         Column(
             Modifier
                 .padding(8.dp)
@@ -154,9 +185,9 @@ fun GraphViewer(
                     )
                 }
             }
-            if (userPosition != null) {
+            userPosition.value?.let {
                 FilledTonalIconButton(
-                    onClick = { viewModel.centerOnNode(userPosition) }
+                    onClick = { viewModel.centerOnNode(userPosition.value!!) }
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.baseline_my_location_24),
@@ -170,7 +201,8 @@ fun GraphViewer(
 
 private fun DrawScope.drawWay(
     points: List<Offset>,
-    scale: Float
+    scale: Float,
+    reusablePath: Path
 ) {
     if (points.size < 2) return
 
@@ -190,20 +222,25 @@ private fun DrawScope.drawWay(
     )
 
     // 2. Tạo đối tượng Path từ List<Offset>
-    val navigationPath = Path().apply {
-        // Điểm bắt đầu (thường là User Position)
-        moveTo(points.first().x, points.first().y)
-
-        // Nối lần lượt qua các điểm trung gian đến đích
-        // drop(1) để bỏ qua điểm đầu vì đã moveTo rồi
-        points.drop(1).forEach { offset ->
-            lineTo(offset.x, offset.y)
-        }
+//    val navigationPath = Path().apply {
+//        // Điểm bắt đầu (thường là User Position)
+//        moveTo(points.first().x, points.first().y)
+//
+//        // Nối lần lượt qua các điểm trung gian đến đích
+//        // drop(1) để bỏ qua điểm đầu vì đã moveTo rồi
+//        points.drop(1).forEach { offset ->
+//            lineTo(offset.x, offset.y)
+//        }
+//    }
+    reusablePath.reset()
+    reusablePath.moveTo(points.first().x, points.first().y)
+    for (i in 1 until points.size) { // Dùng vòng lặp for i thay vì drop(1) để tránh tạo list phụ
+        reusablePath.lineTo(points[i].x, points[i].y)
     }
 
     // 3. Thực hiện vẽ đường đi
     drawPath(
-        path = navigationPath,
+        path = reusablePath,
         color = pathColor,
         style = Stroke(
             width = adjustedStrokeWidth,
@@ -236,104 +273,87 @@ private fun DrawScope.drawShapes(
     textPaint: Paint,
     draggingState: DraggingState?,
     selection: Selection,
-    scale: Float
+    scale: Float,
+    reusablePath: Path,          // <--- Input
+    reusableVertices: ArrayList<Offset> // <--- Input
 ) {
-
     nodeWithShapes.forEach { node ->
-        if (node.shape == null) return@forEach
-        val w = node.shape.width
-        val h = node.shape.height
+        val shape = node.shape ?: return@forEach
+        val w = shape.width
+        val h = shape.height
 
-        textPaint.textSize = 28f
-
-        val isSelected =
-            (selection as? Selection.NodeSelected)?.nodeWithShape?.node?.id == node.node.id
+        val isSelected = (selection as? Selection.NodeSelected)?.nodeWithShape?.node?.id == node.node.id
         val isSnapTarget = draggingState?.snapTargetNode?.id == node.node.id
-        val halfW = w / 2
-        val halfH = h / 2
-        val topLeft = Offset(node.shape.centerX - halfW, node.shape.centerY - halfH)
-        val size = Size(w, h)
-        val center = Offset(node.shape.centerX, node.shape.centerY)
 
-        val fillColor =
-            if (isSnapTarget) Color(node.shape.color).copy(alpha = 0.8f) else Color(node.shape.color)
+        val cx = shape.centerX
+        val cy = shape.centerY
+        val size = Size(w, h)
+        val topLeft = Offset(cx - w/2, cy - h/2)
+
+        val fillColor = if (isSnapTarget) Color(shape.color).copy(alpha = 0.8f) else Color(shape.color)
         val strokeColor = if (isSelected) Color.Red else Color.Black
         val strokeWidth = (if (isSelected) 6f else 2f) / scale
         val strokeStyle = Stroke(width = strokeWidth)
 
-        // Vẽ thân hình (Map Shape)
-        when (node.shape.shape) {
+        // Reset path cho vòng lặp này
+        reusablePath.reset()
+
+        when (shape.shape) {
             Shape.Companion.ShapeType.RECTANGLE -> {
                 val cornerRadius = CornerRadius(16f / scale, 16f / scale)
-                drawRoundRect(
-                    color = fillColor,
-                    topLeft = topLeft,
-                    size = size,
-                    cornerRadius = cornerRadius
-                )
-                drawRoundRect(
-                    color = strokeColor,
-                    topLeft = topLeft,
-                    size = size,
-                    cornerRadius = cornerRadius,
-                    style = strokeStyle
-                )
+                drawRoundRect(color = fillColor, topLeft = topLeft, size = size, cornerRadius = cornerRadius)
+                drawRoundRect(color = strokeColor, topLeft = topLeft, size = size, cornerRadius = cornerRadius, style = strokeStyle)
             }
-//                Shape.Companion.ShapeType.CAPSULE -> {
-//                    val cornerRadius = CornerRadius(min(w, h) / 2, min(w, h) / 2)
-//                    drawRoundRect(color = fillColor, topLeft = topLeft, size = size, cornerRadius = cornerRadius)
-//                    drawRoundRect(color = strokeColor, topLeft = topLeft, size = size, cornerRadius = cornerRadius, style = strokeStyle)
-//                }
             Shape.Companion.ShapeType.CIRCLE -> {
                 drawOval(color = fillColor, topLeft = topLeft, size = size)
                 drawOval(color = strokeColor, topLeft = topLeft, size = size, style = strokeStyle)
             }
-
-            Shape.Companion.ShapeType.TRIANGLE, Shape.Companion.ShapeType.DIAMOND, Shape.Companion.ShapeType.PENTAGON, Shape.Companion.ShapeType.HEXAGON -> {
-                val vertices = mutableListOf<Offset>()
+            // Các hình đa giác phức tạp
+            else -> {
+                reusableVertices.clear() // Xóa dữ liệu đỉnh cũ
                 val radiusX = w / 2
                 val radiusY = h / 2
 
-                if (node.shape.shape == Shape.Companion.ShapeType.TRIANGLE) {
-                    vertices.add(Offset(center.x, center.y - radiusY))
-                    vertices.add(Offset(center.x + radiusX, center.y + radiusY))
-                    vertices.add(Offset(center.x - radiusX, center.y + radiusY))
-                } else if (node.shape.shape == Shape.Companion.ShapeType.DIAMOND) {
-                    vertices.add(Offset(center.x, center.y - radiusY))
-                    vertices.add(Offset(center.x + radiusX, center.y))
-                    vertices.add(Offset(center.x, center.y + radiusY))
-                    vertices.add(Offset(center.x - radiusX, center.y))
+                if (shape.shape == Shape.Companion.ShapeType.TRIANGLE) {
+                    reusableVertices.add(Offset(cx, cy - radiusY))
+                    reusableVertices.add(Offset(cx + radiusX, cy + radiusY))
+                    reusableVertices.add(Offset(cx - radiusX, cy + radiusY))
+                } else if (shape.shape == Shape.Companion.ShapeType.DIAMOND) {
+                    reusableVertices.add(Offset(cx, cy - radiusY))
+                    reusableVertices.add(Offset(cx + radiusX, cy))
+                    reusableVertices.add(Offset(cx, cy + radiusY))
+                    reusableVertices.add(Offset(cx - radiusX, cy))
                 } else {
-                    val sides = if (node.shape.shape == Shape.Companion.ShapeType.PENTAGON) 5 else 6
+                    val sides = if (shape.shape == Shape.Companion.ShapeType.PENTAGON) 5 else 6
                     val startAngle = -PI / 2
                     for (i in 0 until sides) {
                         val angle = startAngle + 2 * PI * i / sides
-                        vertices.add(
+                        reusableVertices.add(
                             Offset(
-                                center.x + (radiusX * cos(angle)).toFloat(),
-                                center.y + (radiusY * sin(angle)).toFloat()
+                                cx + (radiusX * cos(angle)).toFloat(),
+                                cy + (radiusY * sin(angle)).toFloat()
                             )
                         )
                     }
                 }
-                val path = Path()
-                path.addRoundedPolygon(vertices, cornerFraction = 0.25f)
-                drawPath(path = path, color = fillColor)
-                drawPath(path = path, color = strokeColor, style = strokeStyle)
-            }
 
-            else -> {}
+                // Hàm này phải được cập nhật để dùng reusablePath thay vì tạo path mới
+                // Bạn có thể viết logic addPoly vào reusablePath ngay tại đây hoặc sửa hàm extension
+                reusablePath.addRoundedPolygon(reusableVertices, 0.25f)
+
+                drawPath(path = reusablePath, color = fillColor)
+                drawPath(path = reusablePath, color = strokeColor, style = strokeStyle)
+            }
         }
 
         // Vẽ Text
         val fontHeight = textPaint.descent() - textPaint.ascent()
         val textOffset = fontHeight / 2 - textPaint.descent()
         drawContext.canvas.nativeCanvas.drawText(
-            node.shape.label,
-            center.x,
-            center.y + textOffset,
+            shape.label,
+            cx,
+            cy + textOffset,
             textPaint
         )
-
     }
 }

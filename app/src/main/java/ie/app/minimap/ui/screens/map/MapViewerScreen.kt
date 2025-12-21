@@ -1,9 +1,7 @@
 package ie.app.minimap.ui.screens.map
 
 import android.annotation.SuppressLint
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,7 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -73,17 +71,23 @@ fun MapViewerScreen(
     var centerNode by remember { mutableStateOf<NodeWithShape?>(null) }
     var selectionNode by remember { mutableStateOf<NodeWithShape?>(null) }
 
-    val animWidth = remember { Animatable(400f) }
-    val animHeight = remember { Animatable(400f) }
+    var mapWidth by remember { mutableFloatStateOf(400f) }
+    var mapHeight by remember { mutableFloatStateOf(400f) }
 
     val uiState by viewModel.uiState.collectAsState()
     val buildings by viewModel.buildings.collectAsState()
     val floors by viewModel.floors.collectAsState()
     val nodes by viewModel.nodes.collectAsState()
-    val userPosition by viewModel.userPosition.collectAsState()
+    val userPosition = viewModel.userPosition.collectAsState()
     val searchResult by viewModel.searchResult.collectAsState()
     val boothWithVendor by viewModel.boothWithVendor.collectAsState()
     val pathOffsetAndNode by viewModel.pathOffsetAndNode.collectAsState()
+
+    val showDirectionButton by remember {
+        derivedStateOf {
+            selectionNode != null && userPosition.value != null
+        }
+    }
 
     val scaffoldState = rememberBottomSheetScaffoldState()
 
@@ -192,7 +196,7 @@ fun MapViewerScreen(
                     expandedSearch = expandedSearch,
                     onBack = onBack,
                     onSearch = {
-                        viewModel.getNodesByLabel(it)
+                        viewModel.getNodesByLabel(it, venueId)
                     },
                     onClickNode = { building, floor, node ->
                         viewModel.onBuildingSelected(building)
@@ -216,10 +220,16 @@ fun MapViewerScreen(
                             Box(
                                 modifier = Modifier
                                     .size(
-                                        width = with(LocalDensity.current) { animWidth.value.toDp() },
-                                        height = with(LocalDensity.current) { animHeight.value.toDp() }
+                                        width = with(LocalDensity.current) { mapWidth.toDp() },
+                                        height = with(LocalDensity.current) { mapHeight.toDp() }
                                     )
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .graphicsLayer {
+                                        clip = true
+                                        shape = RoundedCornerShape(8.dp)
+                                    // shadowElevation = 4.dp.toPx() // Nếu muốn bóng đổ
+                                    }
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+
                             ) {
                                 if (uiState.selectedFloor.id != 0L) {
                                     GraphViewer(
@@ -238,33 +248,10 @@ fun MapViewerScreen(
                                         .size(40.dp)
                                         .align(Alignment.BottomStart)
                                         .pointerInput(Unit) {
-                                            detectDragGestures(
-                                                onDragEnd = {
-                                                    // Ví dụ: Thả tay ra thì tự động "nảy" về kích thước chẵn
-                                                    coroutineScope.launch {
-                                                        animWidth.animateTo(
-                                                            animWidth.value,
-                                                            spring(Spring.DampingRatioLowBouncy)
-                                                        )
-                                                    }
-                                                }
-                                            ) { change, dragAmount ->
+                                            detectDragGestures { change, dragAmount ->
                                                 change.consume()
-                                                coroutineScope.launch {
-                                                    // Dùng snapTo để bám sát ngón tay (không trễ)
-                                                    val newW =
-                                                        (animWidth.value - dragAmount.x).coerceAtLeast(
-                                                            400f
-                                                        )
-                                                    val newH =
-                                                        (animHeight.value + dragAmount.y).coerceAtLeast(
-                                                            400f
-                                                        )
-
-                                                    // Chạy song song để cập nhật UI
-                                                    launch { animWidth.snapTo(newW) }
-                                                    launch { animHeight.snapTo(newH) }
-                                                }
+                                                mapWidth = (mapWidth - dragAmount.x).coerceIn(200f, 800f)
+                                                mapHeight = (mapHeight + dragAmount.y).coerceIn(200f, 800f)
                                             }
                                         }
                                 ) {
@@ -298,7 +285,7 @@ fun MapViewerScreen(
                     modifier = Modifier.weight(1f)
                 )
                 selectionNode?.shape?.let {
-                    userPosition?.let {
+                    if (showDirectionButton) {
                         Button(onClick = {
                             viewModel.findPathToNode(selectionNode!!.node)
                         }) {
