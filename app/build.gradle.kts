@@ -1,4 +1,4 @@
-import com.google.protobuf.gradle.*
+import com.google.protobuf.gradle.id
 
 plugins {
     alias(libs.plugins.android.application)
@@ -93,7 +93,8 @@ dependencies {
     implementation(libs.accompanist.permissions)
     //Coil
     implementation(libs.coil.compose)
-    implementation(libs.android.image.cropper)
+    //SplashScreen
+    implementation("androidx.core:core-splashscreen:1.2.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -102,6 +103,11 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    //m3 material
+    implementation("androidx.compose.material3:material3:1.4.0")
+    implementation("androidx.compose.material3:material3-window-size-class:1.4.0")
+    implementation("androidx.compose.material3:material3-adaptive-navigation-suite:1.5.0-alpha10")
+    implementation("androidx.compose.material:material-icons-extended")
 }
 
 protobuf {

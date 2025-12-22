@@ -1,5 +1,6 @@
 package ie.app.minimap.data.local.repository
 
+import androidx.room.Transaction
 import androidx.room.withTransaction
 import ie.app.minimap.data.local.AppDatabase
 import ie.app.minimap.data.local.dao.BoothDao
@@ -38,7 +39,17 @@ class InfoRepository @Inject constructor(
     private val eventDao: EventDao
 ) {
 
-    fun getNodesByLabel(label: String, floorId: Long) = nodeDao.getNodesByLabel(label, floorId)
+    fun getShapesByLabel(label: String, venueId: Long) = nodeDao.getShapesByLabel(label, venueId)
+
+    suspend fun getBoothWithVendorByNodeId(nodeId: Long) = boothDao.getBoothWithVendorByNodeId(nodeId)
+
+    @Transaction
+    suspend fun updateBoothAndVendor(booth: Booth, vendor: Vendor) {
+        val vendorId = vendorDao.upsert(vendor)
+        boothDao.upsert(booth.copy(vendorId = if (vendorId == -1L) vendor.id else vendorId))
+    }
+
+    fun getAllVendors() = vendorDao.getAllVendors()
 
     suspend fun upsertVendor(vendor: Vendor): Long {
         return vendorDao.upsert(vendor)
@@ -73,15 +84,15 @@ class InfoRepository @Inject constructor(
 
     suspend fun exportRoomToProto(venueId: Long): SharedDataProto {
         return db.withTransaction {
-            val venue = venueDao.getVenueById(venueId).first()
-            val vendors = vendorDao.getVendorsByVenueId(venueId).first()
-            val booths = boothDao.getBoothsByVenueId(venueId).first()
-            val nodes = nodeDao.getNodesByVenueId(venueId).first()
+            val venue = venueDao.getVenueById(venueId)
+            val vendors = vendorDao.getVendorsByVenueId(venueId)
+            val booths = boothDao.getBoothsByVenueId(venueId)
+            val nodes = nodeDao.getNodesByVenueId(venueId)
             val buildings = buildingDao.getBuildingsByVenueId(venueId).first()
-            val floors = floorDao.getFloorsByVenueId(venueId).first()
-            val floorConnections = floorConnectionDao.getFloorConnectionsByVenueId(venueId).first()
-            val edges = edgeDao.getEdgesByVenueId(venueId).first()
-            val events = eventDao.getEventsByVenueId(venueId).first()
+            val floors = floorDao.getFloorsByVenueId(venueId)
+            val floorConnections = floorConnectionDao.getFloorConnectionsByVenueId(venueId)
+            val edges = edgeDao.getEdgesByVenueId(venueId)
+            val events = eventDao.getEventsByVenueId(venueId)
             return@withTransaction SharedDataProto.newBuilder()
                 .setVenue(venue.toProto())
                 .addAllNode(nodes.map { it.toProto() })

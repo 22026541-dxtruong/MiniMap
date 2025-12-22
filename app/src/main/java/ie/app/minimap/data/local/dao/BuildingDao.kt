@@ -23,7 +23,7 @@ interface BuildingDao {
 
     @Transaction
     @Query("SELECT * FROM buildings WHERE id = :id")
-    fun getBuildingWithFloorsById(id: Long): Flow<BuildingWithFloors>
+    fun getBuildingById(id: Long): Flow<Building>
 
     @Query("SELECT * FROM buildings WHERE venue_id = :venueId ORDER BY id ASC")
     fun getBuildingsByVenueId(venueId: Long): Flow<List<Building>>

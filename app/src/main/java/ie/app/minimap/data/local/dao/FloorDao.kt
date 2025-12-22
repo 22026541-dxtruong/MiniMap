@@ -23,12 +23,12 @@ interface FloorDao {
 
     @Transaction
     @Query("SELECT * FROM floors WHERE id = :id")
-    fun getFloorWithNodesAndEdgesById(id: Long): Flow<FloorWithNodesAndEdges>
+    fun getFloorWithNodesAndEdgesById(id: Long): Flow<FloorWithNodesAndEdges?>
 
     @Query("SELECT * FROM floors WHERE building_id = :buildingId ORDER BY level ASC")
     fun getFloorsByBuildingId(buildingId: Long): Flow<List<Floor>>
 
     @Query("SELECT * FROM floors WHERE venue_id = :venueId ORDER BY level ASC")
-    fun getFloorsByVenueId(venueId: Long): Flow<List<Floor>>
+    fun getFloorsByVenueId(venueId: Long): List<Floor>
 
 }

@@ -1,6 +1,7 @@
 package ie.app.minimap.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
@@ -12,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
 interface EventDao {
 
     @Upsert
-    fun upsert(event: Event)
+    suspend fun upsert(event: Event)
 
     @Upsert
     fun upsert(events: List<Event>)
@@ -21,7 +22,10 @@ interface EventDao {
     fun getEventsByBoothId(boothId: Long): Flow<List<Event>>
 
     @Query("SELECT * FROM events WHERE venue_id = :venueId ORDER BY start_time ASC")
-    fun getEventsByVenueId(venueId: Long): Flow<List<Event>>
+    fun getEventsByVenueId(venueId: Long): List<Event>
+
+    @Delete
+    suspend fun delete(event: Event)
 
     @Transaction
     @Query("""

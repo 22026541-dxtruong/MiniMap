@@ -12,6 +12,7 @@ import ie.app.minimap.data.local.dao.EventDao
 import ie.app.minimap.data.local.dao.FloorConnectionDao
 import ie.app.minimap.data.local.dao.FloorDao
 import ie.app.minimap.data.local.dao.NodeDao
+import ie.app.minimap.data.local.dao.ShapeDao
 import ie.app.minimap.data.local.dao.VendorDao
 import ie.app.minimap.data.local.dao.VenueDao
 import ie.app.minimap.data.local.repository.EventRepository
@@ -27,17 +28,21 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideMapRepository(
+        database: AppDatabase,
         buildingDao: BuildingDao,
         nodeDao: NodeDao,
         edgeDao: EdgeDao,
         floorDao: FloorDao,
-        floorConnectionDao: FloorConnectionDao
+        floorConnectionDao: FloorConnectionDao,
+        shapeDao: ShapeDao
     ): MapRepository = MapRepository(
+        database,
         buildingDao,
         floorDao,
         nodeDao,
         edgeDao,
-        floorConnectionDao
+        floorConnectionDao,
+        shapeDao
     )
 
     @Provides
@@ -57,8 +62,11 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideEventRepository(
-        eventDao: EventDao
-    ): EventRepository = EventRepository(eventDao)
+        eventDao: EventDao,
+        boothDao: BoothDao,
+        buildingDao: BuildingDao,
+        vendorDao: VendorDao,
+    ): EventRepository = EventRepository(eventDao, boothDao, buildingDao,vendorDao)
 
     @Provides
     @Singleton

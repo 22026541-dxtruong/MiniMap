@@ -3,8 +3,6 @@ package com.google.ar.sceneform;
 import android.content.Context;
 import android.media.Image;
 
-import android.opengl.GLES11Ext;
-import android.opengl.GLES30;
 import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
 import android.util.AttributeSet;
@@ -27,7 +25,6 @@ import com.google.ar.core.exceptions.FatalException;
 import com.google.ar.sceneform.math.Vector3;
 import com.google.ar.sceneform.rendering.CameraStream;
 import com.google.ar.sceneform.rendering.Color;
-import com.google.ar.sceneform.rendering.DepthTexture;
 import com.google.ar.sceneform.rendering.EnvironmentalHdrLightEstimate;
 import com.google.ar.sceneform.rendering.GLHelper;
 
@@ -84,9 +81,6 @@ public class ArSceneView extends SceneView {
     // pauseResumeTask is modified on the main thread only.  It may be completed on background
     // threads however.
     private final SequentialTask pauseResumeTask = new SequentialTask();
-
-    @Nullable private DepthTexture depthTexture;
-    private boolean depthEnabled = false;
 
     /**
      * Constructs a ArSceneView object and binds it to an Android Context.
@@ -243,9 +237,6 @@ public class ArSceneView extends SceneView {
      */
     @Override
     public void pause() {
-        if (depthTexture != null) {
-            depthTexture.destroy();
-        }
         pauseScene();
         pauseSession();
     }
@@ -351,74 +342,6 @@ public class ArSceneView extends SceneView {
         return lightEstimationEnabled;
     }
 
-    /**
-     * Enable or disable depth mode for occlusion
-    * Must be called AFTER setupSession()
-    */
-    public void setDepthEnabled(boolean enabled) {
-        if (session == null) {
-            Log.w(TAG, "Session must be setup before enabling depth");
-            return;
-        }
-
-        Config config = session.getConfig();
-
-        if (enabled) {
-            // Check if device supports depth
-            if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) {
-                config.setDepthMode(Config.DepthMode.AUTOMATIC);
-                session.configure(config);
-
-                // Create depth texture manager
-                if (depthTexture == null) {
-                    depthTexture = new DepthTexture();
-                }
-
-                depthEnabled = true;
-                Log.i(TAG, "Depth mode enabled");
-            } else {
-                Log.w(TAG, "Depth mode not supported on this device");
-                depthEnabled = false;
-            }
-        } else {
-            config.setDepthMode(Config.DepthMode.DISABLED);
-            session.configure(config);
-
-            if (depthTexture != null) {
-                depthTexture.destroy();
-                depthTexture = null;
-            }
-
-            depthEnabled = false;
-            Log.i(TAG, "Depth mode disabled");
-        }
-    }
-
-    /**
-     * Check if depth mode is currently enabled
-     */
-    public boolean isDepthEnabled() {
-        return depthEnabled;
-    }
-
-    /**
-     * Check if device supports depth mode
-     */
-    public boolean isDepthSupported() {
-        if (session == null) {
-            return false;
-        }
-        return session.isDepthModeSupported(Config.DepthMode.AUTOMATIC);
-    }
-
-    /**
-     * Get the depth texture for use in custom materials
-     */
-    @Nullable
-    public DepthTexture getDepthTexture() {
-        return depthTexture;
-    }
-
     /** Returns the ARCore Session used by this view. */
     @Nullable
     public Session getSession() {
@@ -480,14 +403,6 @@ public class ArSceneView extends SceneView {
             // Recalculate camera Uvs if necessary.
             if (shouldRecalculateCameraUvs(frame)) {
                 cameraStream.recalculateCameraUvs(frame);
-            }
-
-            if (depthEnabled && depthTexture != null) {
-                if (!depthTexture.isInitialized()) {
-                    depthTexture.initialize(frame);
-                } else {
-                    depthTexture.update(frame);
-                }
             }
 
             if (currentFrame != null && currentFrame.getTimestamp() == frame.getTimestamp()) {

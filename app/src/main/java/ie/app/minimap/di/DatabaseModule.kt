@@ -58,4 +58,8 @@ object DatabaseModule {
     @Singleton
     fun provideBoothDao(db: AppDatabase) = db.boothDao()
 
+    @Provides
+    @Singleton
+    fun provideShapeDao(db: AppDatabase) = db.shapeDao()
+
 }

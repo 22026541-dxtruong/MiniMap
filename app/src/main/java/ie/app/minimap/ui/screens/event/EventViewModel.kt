@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import ie.app.minimap.data.local.dto.EventWithBuildingAndFloor
+import ie.app.minimap.data.local.entity.Booth
+import ie.app.minimap.data.local.entity.Building
 import ie.app.minimap.data.local.repository.EventRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,5 +36,18 @@ class EventViewModel @Inject constructor(
                 _uiState.value = EventUiState(error = e.message)
             }
         }
+    }
+
+//    fun loadBuildings(venueId: Long): List<Building> {
+//        return eventRepository.getBuildings(venueId)
+//    }
+
+
+//    fun loadBooths(venueId: Long): List<Booth> {
+//        return eventRepository.getBoothByVenueId(venueId)
+//    }
+
+    fun createEvent(name: String, description: String, venueId: Long, boothId: Long) {
+
     }
 }

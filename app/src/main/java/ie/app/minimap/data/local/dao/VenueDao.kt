@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface VenueDao {
     @Query("SELECT * from venues WHERE id = :id")
-    fun getVenueById(id: Long): Flow<Venue>
+    suspend fun getVenueById(id: Long): Venue
 
     @Query("SELECT * from venues")
     fun getAllVenues(): Flow<List<Venue>>

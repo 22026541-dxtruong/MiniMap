@@ -25,7 +25,6 @@ data class Node(
     val venueId: Long = 0,
     @ColumnInfo(name = "floor_id")
     val floorId: Long = 0,
-    val label: String = "",
     val type: String = "",
     val x: Float = 0f,
     val y: Float = 0f,
@@ -39,13 +38,13 @@ data class Node(
         const val BOOTH = "Booth"
         const val CONNECTOR = "Connector"
         const val INTERSECTION = "Intersection"
+        const val HALLWAY = "Hallway"
     }
 
     constructor(proto: NodeProto) : this(
         id = proto.id,
         venueId = proto.venueId,
         floorId = proto.floorId,
-        label = proto.label,
         type = proto.type,
         x = proto.x,
         y = proto.y,
@@ -59,7 +58,6 @@ fun Node.toProto(): NodeProto {
         .setId(id)
         .setVenueId(venueId)
         .setFloorId(floorId)
-        .setLabel(label)
         .setType(type)
         .setX(x)
         .setY(y)

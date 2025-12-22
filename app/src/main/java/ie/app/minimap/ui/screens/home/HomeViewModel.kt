@@ -3,30 +3,31 @@ package ie.app.minimap.ui.screens.home
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.Rect
+import android.graphics.RectF
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Base64
 import android.util.Log
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import dagger.hilt.android.lifecycle.HiltViewModel
-import ie.app.minimap.data.local.entity.Booth
-import ie.app.minimap.data.local.entity.Building
-import ie.app.minimap.data.local.entity.Edge
-import ie.app.minimap.data.local.entity.Event
-import ie.app.minimap.data.local.entity.Floor
-import ie.app.minimap.data.local.entity.FloorConnection
-import ie.app.minimap.data.local.entity.Node
-import ie.app.minimap.data.local.entity.Vendor
+import ie.app.minimap.R
 import ie.app.minimap.data.local.entity.Venue
-import ie.app.minimap.data.local.entity.toProto
 import ie.app.minimap.data.local.repository.InfoRepository
 import ie.app.minimap.data.local.repository.VenueRepository
-import ie.app.minimap.data.proto.SharedDataProto
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +36,10 @@ import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
 import javax.inject.Inject
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.set
+import java.io.File
+import java.io.FileOutputStream
 
 data class HomeUiState(
     val venues: Map<String, Venue> = emptyMap(),
@@ -144,36 +149,85 @@ class HomeViewModel @Inject constructor(
         return Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP)
     }
 
-    fun generateQrCode(text: String): Bitmap {
-        val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 512, 512)
-        val width = matrix.width
-        val height = matrix.height
+    fun generateQrCode(context: Context, text: String, size: Int = 512): Bitmap {
+        Log.d("HomeViewModel", "Generating QR code with text: $text")
+        // 1. QR với Error Correction Level H
+        val hints = mapOf(
+            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H,
+            EncodeHintType.CHARACTER_SET to "UTF-8"
+        )
 
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                bitmap.setPixel(x, y, if (matrix.get(x, y)) Color.BLACK else Color.WHITE)
+        val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size, hints)
+        val qrBitmap = createBitmap(size, size)
+        for (y in 0 until size) {
+            for (x in 0 until size) {
+                qrBitmap[x, y] = if (matrix[x, y]) Color.BLACK else Color.WHITE
             }
         }
-        return bitmap
+
+        // 2. Lấy logo từ drawable
+        val logoBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.logo)
+            ?: return qrBitmap
+
+        // 3. Resize logo (~20% QR)
+        val scale = size * 0.2f / logoBitmap.width
+        val matrixLogo = Matrix().apply { postScale(scale, scale) }
+        val resizedLogo = Bitmap.createBitmap(
+            logoBitmap,
+            0, 0,
+            logoBitmap.width,
+            logoBitmap.height,
+            matrixLogo,
+            false
+        )
+
+        // 4. Bo tròn logo
+        val roundedLogo = createBitmap(resizedLogo.width, resizedLogo.height)
+        val canvas = Canvas(roundedLogo)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val rect = Rect(0, 0, resizedLogo.width, resizedLogo.height)
+        val rectF = RectF(rect)
+        val radius = resizedLogo.width * 0.2f // bán kính bo tròn 20% chiều rộng
+        canvas.drawRoundRect(rectF, radius, radius, paint)
+        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+        canvas.drawBitmap(resizedLogo, 0f, 0f, paint)
+
+        // 5. Chèn logo bo tròn vào trung tâm QR
+        val combined = createBitmap(size, size, qrBitmap.config!!)
+        val finalCanvas = Canvas(combined)
+        finalCanvas.drawBitmap(qrBitmap, 0f, 0f, null)
+
+        val left = (size - roundedLogo.width) / 2
+        val top = (size - roundedLogo.height) / 2
+        finalCanvas.drawBitmap(roundedLogo, left.toFloat(), top.toFloat(), null)
+
+        return combined
     }
 
     fun shareImage(context: Context, bitmap: Bitmap) {
-//        val stream = ByteArrayOutputStream()
-//        bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-//        val byteArray = stream.toByteArray()
-        val path = MediaStore.Images.Media.insertImage(context.contentResolver, bitmap, "title", null)
-        val uri: Uri = Uri.parse(path)
-
-        val shareIntent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_STREAM, uri)  // Đính kèm ảnh
-            type = "image/*"
-//            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        // 1. Lưu bitmap tạm vào cache
+        val cachePath = File(context.cacheDir, "images")
+        cachePath.mkdirs()
+        val file = File(cachePath, "shared_image.png")
+        FileOutputStream(file).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
 
-        val chooserIntent = Intent.createChooser(shareIntent, null)
-        context.startActivity(chooserIntent)
+        // 2. Lấy URI qua FileProvider
+        val uri = FileProvider.getUriForFile(
+            context,
+            context.packageName + ".fileprovider", // phải khai báo trong manifest
+            file
+        )
+
+        // 3. Tạo intent share
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "image/*"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        context.startActivity(Intent.createChooser(shareIntent, "Share Image"))
     }
 
 }

@@ -49,7 +49,8 @@ fun EventScreen(
     venueId: Long = 0,
     viewModel: EventViewModel = hiltViewModel(),
     onBackClicked: () -> Unit = { },
-    onMapClicked: (Long) -> Unit = { },
+    onMapEditClicked: (Long) -> Unit = { },
+    onMapViewClicked: (Long) -> Unit = { },
     onClickEvent: (Long) -> Unit = { },
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
@@ -69,7 +70,9 @@ fun EventScreen(
             )
         }
     ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding)) {
+        Box(Modifier
+            .fillMaxSize()
+            .padding(innerPadding)) {
             // --- Nội dung chính ---
             when {
                 uiState.events.isEmpty() && !uiState.isLoading && uiState.error == null -> {
@@ -87,10 +90,12 @@ fun EventScreen(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(PaddingValues(
-                                top = innerPadding.calculateTopPadding() + 16.dp,
-                                bottom = innerPadding.calculateBottomPadding()
-                            )),
+                            .padding(
+                                PaddingValues(
+                                    top = innerPadding.calculateTopPadding() + 16.dp,
+                                    bottom = innerPadding.calculateBottomPadding()
+                                )
+                            ),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(uiState.events, key = { it.event.id }) { event ->
@@ -134,10 +139,16 @@ fun EventScreen(
                     }
                 }
             }
-            EventBottomBar(
-                onMapClicked = { onMapClicked(venueId) },
+            Column(
                 modifier = Modifier.align(Alignment.BottomCenter)
-            )
+            ) {
+                EventBottomBar(
+                    onMapClicked = { onMapEditClicked(venueId) },
+                )
+                EventBottomBar(
+                    onMapClicked = { onMapViewClicked(venueId) },
+                )
+            }
         }
 
     }

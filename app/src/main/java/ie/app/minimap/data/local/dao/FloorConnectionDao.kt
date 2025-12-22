@@ -37,6 +37,6 @@ interface FloorConnectionDao {
     fun getFloorConnectionsByFloorId(floorId: Long): Flow<List<FloorConnection>>
 
     @Query("SELECT * FROM floor_connections WHERE venue_id = :venueId ORDER BY from_floor, type ASC")
-    fun getFloorConnectionsByVenueId(venueId: Long): Flow<List<FloorConnection>>
+    fun getFloorConnectionsByVenueId(venueId: Long): List<FloorConnection>
 
 }
