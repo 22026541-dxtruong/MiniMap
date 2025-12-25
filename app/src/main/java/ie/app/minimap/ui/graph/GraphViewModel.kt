@@ -858,24 +858,6 @@ class GraphViewModel @Inject constructor(
 
         return when (nodeWithShape.shape.shape) {
             Shape.Companion.ShapeType.RECTANGLE -> abs(localX) <= halfW && abs(localY) <= halfH
-            // Update DOT logic: Bắt buộc vùng chạm tối thiểu 40px (trên màn hình)
-            //            Shape.DOT -> {
-            //                val hitRadius = max(halfW, 40f / scale)
-            //                (localX * localX) + (localY * localY) <= hitRadius * hitRadius
-            //            }
-//                Shape.Companion.ShapeType.CAPSULE -> {
-//                    val radius = min(w, h) / 2
-//                    if (w > h) {
-//                        val distX = abs(localX) - (halfW - radius)
-//                        if (distX <= 0) return abs(localY) <= radius
-//                        return (distX * distX + localY * localY) <= radius * radius
-//                    } else {
-//                        val distY = abs(localY) - (halfH - radius)
-//                        if (distY <= 0) return abs(localX) <= radius
-//                        return (localX * localX + distY * distY) <= radius * radius
-//                    }
-//                }
-
             Shape.Companion.ShapeType.CIRCLE -> (localX * localX) / (halfW * halfW) + (localY * localY) / (halfH * halfH) <= 1
             Shape.Companion.ShapeType.TRIANGLE -> isPointInPolygon(
                 Offset(

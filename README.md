@@ -16,7 +16,7 @@ MiniMap là một ứng dụng Android hỗ trợ quản lý sự kiện và đ�
 
 |                                                   Màn hình chính                                                   |                                                         Bản đồ & AR                                                         |                                                             Quét QR                                                             |
 |:------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------------------------------------------------:|
-| <img src="screenshots/home.jpg" width="125" style="margin-right:5px"><img src="screenshots/event.jpg" width="125"> | <img src="screenshots/mapviewer.jpg" width="250" style="margin-right:5px"><img src="screenshots/mapeditor.jpg" width="125"> | <img src="screenshots/qr_scanner2.png" width="125" style="margin-right:5px"><img src="screenshots/qr_scanner1.png" width="125"> |
+| <img src="screenshots/home.jpg" width="125" style="margin-right:5px"><img src="screenshots/event.jpg" width="125"> | <img src="screenshots/mapviewer.jpg" width="125" style="margin-right:5px"><img src="screenshots/mapeditor.jpg" width="125"> | <img src="screenshots/qr_scanner2.png" width="125" style="margin-right:5px"><img src="screenshots/qr_scanner1.png" width="125"> |
 
 ## 🛠 Công nghệ sử dụng
 

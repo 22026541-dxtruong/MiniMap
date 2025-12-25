@@ -59,6 +59,13 @@ fun ArViewViewer(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.resolveRequestFlow.collect { nodeToResolve ->
+            // Gọi ngược lại hàm thực thi trong ViewModel nhưng truyền View vào
+            viewModel.executeResolveNode(arSceneView, nodeToResolve)
+        }
+    }
+
     LaunchedEffect(nodes) {
         viewModel.updateCloudAnchors(nodes)
     }

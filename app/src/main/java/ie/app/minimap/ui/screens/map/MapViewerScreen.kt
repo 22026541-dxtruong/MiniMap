@@ -242,7 +242,6 @@ fun MapViewerScreen(
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
-                                // Handle tại góc dưới bên trái
                                 Box(
                                     modifier = Modifier
                                         .size(40.dp)

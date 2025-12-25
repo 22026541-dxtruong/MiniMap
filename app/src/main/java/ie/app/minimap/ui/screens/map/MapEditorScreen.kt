@@ -129,7 +129,6 @@ fun MapEditorScreen(
         derivedStateOf { scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded }
     }
 
-    // Dialog state
     var showBuildingDialog by remember { mutableStateOf(false) }
     var editingBuilding by remember { mutableStateOf<Building?>(null) }
 
@@ -495,10 +494,6 @@ fun BoothEditDialog(
                         onValueChange = {
                             vendorName = it
                             vendorExpanded = true
-                            // If user types, we might be creating a new vendor or editing,
-                            // but if it matches exactly an existing one, we should ideally link it.
-                            // For now, if they type, we reset vendorId unless it's a perfect match?
-                            // Let's reset vendorId to 0 if they type something that doesn't match the current one
                             if (it != boothWithVendor.vendor.name) {
                                 vendorId = 0L
                             }

@@ -9,7 +9,6 @@ import com.google.ar.core.Pose
 import com.google.ar.core.TrackingState
 import com.google.ar.sceneform.AnchorNode
 import com.google.ar.sceneform.ArSceneView
-import com.google.ar.sceneform.math.Quaternion
 import com.google.ar.sceneform.math.Vector3
 import com.google.ar.sceneform.rendering.ModelRenderable
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,12 +16,21 @@ import ie.app.minimap.data.local.entity.*
 import ie.app.minimap.data.local.repository.InfoRepository
 import ie.app.minimap.data.local.repository.MapRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -71,14 +79,21 @@ class ArViewModel @Inject constructor(
     private var logicJob: Job? = null
     private var lastPathIds: List<Long> = emptyList()
 
-    private val frameSignal = MutableSharedFlow<Pose>(
+    // 1. INPUT FLOW: Nhận vị trí Camera từ UI (Tốc độ cao 60fps)
+    // replay=0, extra=1, DROP_OLDEST: Chỉ giữ lại vị trí mới nhất, vứt bỏ quá khứ
+    private val cameraPoseFlow = MutableSharedFlow<Pose>(
         replay = 0,
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
 
+    // 2. OUTPUT CHANNEL: Gửi lệnh "Cần tải Node này" ngược lại cho UI (Tốc độ thấp)
+    private val _resolveRequestChannel = Channel<Node>(Channel.BUFFERED)
+    val resolveRequestFlow = _resolveRequestChannel.receiveAsFlow()
+
     init {
         loadResources()
+        startProcessingPipeline()
     }
 
     fun clearMessage() {
@@ -138,105 +153,122 @@ class ArViewModel @Inject constructor(
         _uiState.update { it.copy(isLocalized = referenceNodeId != null) }
     }
 
-    fun onUpdate(arSceneView: ArSceneView) {
-        if (_uiState.value.loading || allNodes.isEmpty()) return
-
-        val arFrame = arSceneView.arFrame ?: return
-        val camera = arFrame.camera
-        if (camera.trackingState != TrackingState.TRACKING) return
-
-        val currentTime = System.currentTimeMillis()
-
-        if (currentTime - lastLogicUpdateTime < LOGIC_UPDATE_INTERVAL) return
-        if (logicJob?.isActive == true) return
-
-        lastLogicUpdateTime = currentTime
-        val cameraPose = camera.pose
-
-        if (referenceNodeId == null) {
-            for ((nodeId, anchor) in nodesAndAnchor) {
-                if (anchor.trackingState == TrackingState.TRACKING) {
-                    updateReferenceAnchor(nodeId)
-                    break
+    // --- PIPELINE XỬ LÝ (TRÁI TIM CỦA LOGIC) ---
+    @OptIn(FlowPreview::class)
+    private fun startProcessingPipeline() {
+        cameraPoseFlow
+            .filter { !uiState.value.loading && allNodes.isNotEmpty() } // Chỉ chạy khi sẵn sàng
+            .sample(500L) // [QUAN TRỌNG] Chỉ lấy mẫu 500ms/lần (2Hz). Giảm tải CPU cực lớn.
+            .map { cameraPose ->
+                // --- CHẠY TRÊN THREAD TÍNH TOÁN (Default) ---
+                // Tính toán xem cần tải node nào dựa trên vị trí camera lấy được
+                findNodesToResolve(cameraPose)
+            }
+            .flowOn(Dispatchers.Default) // Đẩy toàn bộ logic map ở trên sang luồng Default
+            .onEach { nodesToLoad ->
+                // --- KẾT QUẢ TRẢ VỀ ---
+                // Đẩy danh sách node cần tải vào Channel để UI tiêu thụ
+                nodesToLoad.forEach { node ->
+                    _resolveRequestChannel.trySend(node)
                 }
             }
-        }
-
-        logicJob = viewModelScope.launch(Dispatchers.Default) {
-            if (referenceNodeId == null) {
-                if (currentTime - lastBatchTime > BATCH_DURATION || lastBatchTime == 0L) {
-                    withContext(Dispatchers.Main) {
-                        rotateToNextBatch(arSceneView)
-                    }
-                    lastBatchTime = currentTime
-                }
-            } else {
-                val processingList = if (currentPathNodes.isNotEmpty()) {
-                    val pathIds = currentPathNodes.map { it.id }.toSet()
-                    currentPathNodes + allNodes.filter { it.id !in pathIds }
-                } else {
-                    allNodes
-                }
-
-                processingList.forEach { node ->
-                    if (node.id !in resolvedNodeIds && node.id !in resolvingNodeIds) {
-                        val isPathNode = currentPathNodes.any { it.id == node.id }
-                        val predictedPos = calculatePredictedWorldPosition(node)
-
-                        if (predictedPos != null) {
-                            val distSq = distanceSquared(cameraPose.tx(), 0f, cameraPose.tz(), predictedPos.x, 0f, predictedPos.z)
-                            val threshold = if (isPathNode) 144.0f else 36.0f
-
-                            if (distSq < threshold) {
-                                withContext(Dispatchers.Main) {
-                                    resolveNodeIfNotBusy(arSceneView, node)
-                                }
-                            }
-                        } else if (isPathNode && cachedDynamicRotation == null) {
-                            withContext(Dispatchers.Main) {
-                                resolveNodeIfNotBusy(arSceneView, node)
-                            }
-                        }
-                    }
-                }
-            }
-        }
+            .launchIn(viewModelScope) // Gắn vòng đời vào ViewModel
     }
 
-    private fun distanceSquared(x1: Float, y1: Float, z1: Float, x2: Float, y2: Float, z2: Float): Float {
-        val dx = x1 - x2
-        val dz = z1 - z2
-        return dx * dx + dz * dz
-    }
+    // Hàm thuần túy tính toán (Pure Function): Input Pose -> Output List<Node>
+    private fun findNodesToResolve(cameraPose: Pose): List<Node> {
+        // 1. Chưa có Reference -> Không làm gì (hoặc logic scanning riêng)
+        if (referenceNodeId == null) return emptyList()
 
-    private fun rotateToNextBatch(arSceneView: ArSceneView) {
-        val scanList = if (currentPathNodes.isNotEmpty()) {
+        // 2. Tạo danh sách ưu tiên (Đường đi trước, còn lại sau)
+        val processingList = if (currentPathNodes.isNotEmpty()) {
             val pathIds = currentPathNodes.map { it.id }.toSet()
             currentPathNodes + allNodes.filter { it.id !in pathIds }
-        } else allNodes
+        } else {
+            allNodes
+        }
 
-        scanList.take(BATCH_SIZE).forEach { node ->
-            resolveNodeIfNotBusy(arSceneView, node)
+        val nodesToLoad = mutableListOf<Node>()
+        var count = 0
+
+        for (node in processingList) {
+            // Giới hạn chỉ trả về tối đa 2 node mỗi lần quét để tránh nghẽn
+            if (count >= 2) break
+
+            // Bỏ qua nếu đang xử lý
+            if (node.id in resolvedNodeIds || node.id in resolvingNodeIds) continue
+
+            val isPathNode = currentPathNodes.any { it.id == node.id }
+
+            // Logic tính toán vị trí dự đoán
+            val predictedPos = calculatePredictedWorldPosition(node)
+
+            var shouldLoad = false
+            if (predictedPos != null) {
+                val distSq = distanceSquared(cameraPose.tx(), 0f, cameraPose.tz(), predictedPos.x, 0f, predictedPos.z)
+                // Khoảng cách: Đường đi (20m/400f) hoặc Node thường (6m/36f)
+                val threshold = if (isPathNode) 400.0f else 36.0f
+                if (distSq < threshold) shouldLoad = true
+            } else if (isPathNode && cachedDynamicRotation == null) {
+                // Mù hướng nhưng là đường đi -> Tải đại
+                shouldLoad = true
+            }
+
+            if (shouldLoad) {
+                nodesToLoad.add(node)
+                count++
+            }
+        }
+        return nodesToLoad
+    }
+
+    fun onUpdate(arSceneView: ArSceneView) {
+        val frame = arSceneView.arFrame ?: return
+        val camera = frame.camera
+        if (camera.trackingState != TrackingState.TRACKING) return
+
+        // 1. Chỉ cập nhật vị trí mới nhất vào Flow (Non-blocking)
+        cameraPoseFlow.tryEmit(camera.pose)
+
+        // 2. Logic cập nhật Reference Anchor (Giữ nguyên ở Main thread vì cần truy cập ARCore ngay)
+        if (referenceNodeId == null) {
+            // Tìm anchor gần nhất đang track để làm mốc
+            val closest = nodesAndAnchor
+                .filter { it.value.trackingState == TrackingState.TRACKING }
+                .minByOrNull { (_, anchor) ->
+                    val pose = camera.pose
+                    distanceSquared(pose.tx(), 0f, pose.tz(), anchor.pose.tx(), 0f, anchor.pose.tz())
+                }
+            if (closest != null) updateReferenceAnchor(closest.key)
         }
     }
 
-    private fun resolveNodeIfNotBusy(arSceneView: ArSceneView, node: Node) {
-        if (node.id in resolvedNodeIds || node.id in resolvingNodeIds || node.cloudAnchorId.isBlank()) return
+    // --- HÀM THỰC THI RESOLVE (Được gọi từ UI khi nhận tín hiệu từ Channel) ---
+    fun executeResolveNode(arSceneView: ArSceneView, node: Node) {
+        // Kiểm tra lại lần cuối (Double check)
+        if (node.id in resolvedNodeIds || node.id in resolvingNodeIds) return
+
         resolvingNodeIds.add(node.id)
         val session = arSceneView.session ?: return
+
+        // Gọi ARCore API (Bất đồng bộ)
         try {
             session.resolveCloudAnchorAsync(node.cloudAnchorId) { anchor, state ->
                 if (state == Anchor.CloudAnchorState.SUCCESS) {
                     resolvingNodeIds.remove(node.id)
                     resolvedNodeIds.add(node.id)
                     nodesAndAnchor[node.id] = anchor
+
                     val model = sessionManager.modelRenderable
                     if (model != null && node.type != Node.HALLWAY) {
                         placeObject(arSceneView, anchor, model)
                     }
-                    updateReferenceAnchor(node.id)
+
+                    if (referenceNodeId == null) updateReferenceAnchor(node.id)
+
+                    // Vẽ lại đường nếu cần
                     if (currentPathNodes.any { it.id == node.id }) {
-                        drawPath(arSceneView, currentPathNodes, force = true)
+                        // drawPath(arSceneView, currentPathNodes, force = true) // Uncomment nếu cần vẽ lại
                     }
                 } else if (state != Anchor.CloudAnchorState.TASK_IN_PROGRESS) {
                     resolvingNodeIds.remove(node.id)
@@ -246,6 +278,115 @@ class ArViewModel @Inject constructor(
             resolvingNodeIds.remove(node.id)
         }
     }
+
+//    fun onUpdate(arSceneView: ArSceneView) {
+//        if (_uiState.value.loading || allNodes.isEmpty()) return
+//
+//        val arFrame = arSceneView.arFrame ?: return
+//        val camera = arFrame.camera
+//        if (camera.trackingState != TrackingState.TRACKING) return
+//
+//        val currentTime = System.currentTimeMillis()
+//
+//        if (currentTime - lastLogicUpdateTime < LOGIC_UPDATE_INTERVAL) return
+//        if (logicJob?.isActive == true) return
+//
+//        lastLogicUpdateTime = currentTime
+//        val cameraPose = camera.pose
+//
+//        if (referenceNodeId == null) {
+//            for ((nodeId, anchor) in nodesAndAnchor) {
+//                if (anchor.trackingState == TrackingState.TRACKING) {
+//                    updateReferenceAnchor(nodeId)
+//                    break
+//                }
+//            }
+//        }
+//
+//        logicJob = viewModelScope.launch(Dispatchers.Default) {
+//            if (referenceNodeId == null) {
+//                if (currentTime - lastBatchTime > BATCH_DURATION || lastBatchTime == 0L) {
+//                    withContext(Dispatchers.Main) {
+//                        rotateToNextBatch(arSceneView)
+//                    }
+//                    lastBatchTime = currentTime
+//                }
+//            } else {
+//                val processingList = if (currentPathNodes.isNotEmpty()) {
+//                    val pathIds = currentPathNodes.map { it.id }.toSet()
+//                    currentPathNodes + allNodes.filter { it.id !in pathIds }
+//                } else {
+//                    allNodes
+//                }
+//
+//                processingList.forEach { node ->
+//                    if (node.id !in resolvedNodeIds && node.id !in resolvingNodeIds) {
+//                        val isPathNode = currentPathNodes.any { it.id == node.id }
+//                        val predictedPos = calculatePredictedWorldPosition(node)
+//
+//                        if (predictedPos != null) {
+//                            val distSq = distanceSquared(cameraPose.tx(), 0f, cameraPose.tz(), predictedPos.x, 0f, predictedPos.z)
+//                            val threshold = if (isPathNode) 144.0f else 36.0f
+//
+//                            if (distSq < threshold) {
+//                                withContext(Dispatchers.Main) {
+//                                    resolveNodeIfNotBusy(arSceneView, node)
+//                                }
+//                            }
+//                        } else if (isPathNode && cachedDynamicRotation == null) {
+//                            withContext(Dispatchers.Main) {
+//                                resolveNodeIfNotBusy(arSceneView, node)
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
+
+    private fun distanceSquared(x1: Float, y1: Float, z1: Float, x2: Float, y2: Float, z2: Float): Float {
+        val dx = x1 - x2
+        val dz = z1 - z2
+        return dx * dx + dz * dz
+    }
+
+//    private fun rotateToNextBatch(arSceneView: ArSceneView) {
+//        val scanList = if (currentPathNodes.isNotEmpty()) {
+//            val pathIds = currentPathNodes.map { it.id }.toSet()
+//            currentPathNodes + allNodes.filter { it.id !in pathIds }
+//        } else allNodes
+//
+//        scanList.take(BATCH_SIZE).forEach { node ->
+//            resolveNodeIfNotBusy(arSceneView, node)
+//        }
+//    }
+
+//    private fun resolveNodeIfNotBusy(arSceneView: ArSceneView, node: Node) {
+//        if (node.id in resolvedNodeIds || node.id in resolvingNodeIds || node.cloudAnchorId.isBlank()) return
+//        resolvingNodeIds.add(node.id)
+//        val session = arSceneView.session ?: return
+//        try {
+//            session.resolveCloudAnchorAsync(node.cloudAnchorId) { anchor, state ->
+//                if (state == Anchor.CloudAnchorState.SUCCESS) {
+//                    resolvingNodeIds.remove(node.id)
+//                    resolvedNodeIds.add(node.id)
+//                    nodesAndAnchor[node.id] = anchor
+//                    val model = sessionManager.modelRenderable
+//                    if (model != null && node.type != Node.HALLWAY) {
+//                        placeObject(arSceneView, anchor, model)
+//                    }
+//                    updateReferenceAnchor(node.id)
+//                    if (currentPathNodes.any { it.id == node.id }) {
+//                        drawPath(arSceneView, currentPathNodes, force = true)
+//                    }
+//                } else if (state != Anchor.CloudAnchorState.TASK_IN_PROGRESS) {
+//                    resolvingNodeIds.remove(node.id)
+//                }
+//            }
+//        } catch (_: Exception) {
+//            resolvingNodeIds.remove(node.id)
+//        }
+//    }
 
     private fun updateReferenceAnchor(nodeId: Long) {
         if (referenceNodeId != nodeId) {

@@ -1,7 +1,6 @@
 package ie.app.minimap.ui.ar
 
 import android.annotation.SuppressLint
-import android.util.Log
 import android.view.MotionEvent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
@@ -114,6 +113,13 @@ fun ArViewEditor(
                 }
                 true
             }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.resolveRequestFlow.collect { nodeToResolve ->
+            // Gọi ngược lại hàm thực thi trong ViewModel nhưng truyền View vào
+            viewModel.executeResolveNode(arSceneView, nodeToResolve)
         }
     }
 
