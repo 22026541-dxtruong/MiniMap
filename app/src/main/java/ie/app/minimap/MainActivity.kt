@@ -55,4 +55,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        cacheDir.listFiles()?.forEach { it.delete() }
+    }
+
 }

@@ -64,6 +64,10 @@ dependencies {
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.kotlinx.serialization.core)
+    implementation(libs.org.jetbrains.kotlinx.kotlinx.serialization.json7)
+    //Retrofit
+    implementation(libs.squareup.retrofit)
+    implementation(libs.converter.kotlinx.serialization)
     //Sceneform
     implementation(project(":sceneformsrc")) {
         exclude(group = "com.android.support")

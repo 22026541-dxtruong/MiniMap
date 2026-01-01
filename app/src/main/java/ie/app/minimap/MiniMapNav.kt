@@ -8,10 +8,8 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import ie.app.minimap.ui.screens.event.EventDetailScreen
 import ie.app.minimap.ui.screens.home.HomeScreen
 import ie.app.minimap.ui.screens.event.EventScreen
-import ie.app.minimap.ui.screens.home.EventListScreen
 import ie.app.minimap.ui.screens.map.MapEditorScreen
 import ie.app.minimap.ui.screens.map.MapViewerScreen
 import ie.app.minimap.ui.screens.qrscanner.QrScannerScreen
@@ -24,13 +22,7 @@ data object Home : NavKey
 data object QrScanner : NavKey
 
 @Serializable
-data object EventListing : NavKey
-
-@Serializable
-data class VenueDetails(val venueId: Long) : NavKey
-
-@Serializable
-data class EventDetail(val venueId: Long) : NavKey
+data class Event(val venueId: Long) : NavKey
 
 @Serializable
 data class MapEditor(val venueId: Long) : NavKey
@@ -42,7 +34,7 @@ data class MapViewer(val venueId: Long) : NavKey
 fun MiniMapNav(
     modifier: Modifier = Modifier
 ) {
-    val backStack = rememberNavBackStack(EventListing)
+    val backStack = rememberNavBackStack(Home)
 
     NavDisplay(
         modifier = modifier,
@@ -55,19 +47,16 @@ fun MiniMapNav(
         entryProvider = entryProvider {
             entry<Home> {
                 HomeScreen(
-                    onClickVenue = { backStack.add(VenueDetails(it)) },
-                    onQrScanClicked = { backStack.add(QrScanner) }
-                )
-            }
-            entry<EventListing> {
-                EventListScreen(
                     onVenueClick = { id ->
-                        backStack.add(EventDetail(venueId = id))
+                        backStack.add(Event(venueId = id))
+                    },
+                    onQrClick = {
+                        backStack.add(QrScanner)
                     }
                 )
             }
-            entry<EventDetail> { key ->
-                EventDetailScreen(
+            entry<Event> { key ->
+                EventScreen(
                     venueId = key.venueId,
                     onBackClicked = {
                         backStack.removeLastOrNull()
@@ -84,17 +73,9 @@ fun MiniMapNav(
                 QrScannerScreen(
                     onScannedSuccess = {
                         backStack.removeLastOrNull()
-                        backStack.add(VenueDetails(it))
+                        backStack.add(Event(it))
                     },
                     onBack = { backStack.removeLastOrNull() }
-                )
-            }
-            entry<VenueDetails> { key ->
-                EventScreen(
-                    key.venueId,
-                    onMapEditClicked = { backStack.add(MapEditor(it)) },
-                    onMapViewClicked = { backStack.add(MapViewer(it)) },
-                    onBackClicked = { backStack.removeLastOrNull() }
                 )
             }
             entry<MapEditor> { key ->

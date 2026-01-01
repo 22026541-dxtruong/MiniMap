@@ -1,5 +1,6 @@
 package ie.app.minimap.data.local.repository
 
+import android.util.Base64
 import androidx.room.Transaction
 import androidx.room.withTransaction
 import ie.app.minimap.data.local.AppDatabase
@@ -24,6 +25,7 @@ import ie.app.minimap.data.local.entity.Venue
 import ie.app.minimap.data.local.entity.toProto
 import ie.app.minimap.data.proto.SharedDataProto
 import kotlinx.coroutines.flow.first
+import java.util.zip.GZIPInputStream
 import javax.inject.Inject
 
 class InfoRepository @Inject constructor(
@@ -67,7 +69,8 @@ class InfoRepository @Inject constructor(
         boothDao.delete(booth)
     }
 
-    suspend fun importProtoToRoom(proto: SharedDataProto): Long {
+    suspend fun importProtoToRoom(protoString: String): Long {
+        val proto = qrDataToProto(protoString)
         return db.withTransaction {
             val id = venueDao.upsert(Venue(proto.venue))
             vendorDao.upsert(proto.vendorList.map { Vendor(it) })
@@ -104,6 +107,13 @@ class InfoRepository @Inject constructor(
                 .addAllFloor(floors.map { it.toProto() })
                 .addAllEvent(events.map { it.toProto() })
                 .build()
+        }
+    }
+
+    private fun qrDataToProto(qrData: String): SharedDataProto {
+        val compressed = Base64.decode(qrData, Base64.NO_WRAP)
+        GZIPInputStream(compressed.inputStream()).use { gzip ->
+            return SharedDataProto.parseFrom(gzip.readBytes())
         }
     }
 

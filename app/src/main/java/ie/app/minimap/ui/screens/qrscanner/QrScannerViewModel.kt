@@ -2,7 +2,6 @@ package ie.app.minimap.ui.screens.qrscanner
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.util.Base64
 import android.util.Log
 import android.util.Size
 import androidx.camera.core.Camera
@@ -24,7 +23,7 @@ import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import ie.app.minimap.data.local.repository.InfoRepository
-import ie.app.minimap.data.proto.SharedDataProto
+import ie.app.minimap.data.remote.QrRepository
 import ie.app.minimap.ui.qr.QrCodeAnalyzer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
@@ -33,7 +32,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.zip.GZIPInputStream
 import javax.inject.Inject
 
 data class QrScannerUiState(
@@ -44,7 +42,8 @@ data class QrScannerUiState(
 
 @HiltViewModel
 class QrScannerViewModel @Inject constructor(
-    private val infoRepository: InfoRepository
+    private val infoRepository: InfoRepository,
+    private val qrRepository: QrRepository
 ) : ViewModel() {
     lateinit var camera: Camera
 
@@ -98,19 +97,11 @@ class QrScannerViewModel @Inject constructor(
         }
     }
 
-    private fun qrDataToProto(qrData: String): SharedDataProto {
-        val compressed = Base64.decode(qrData, Base64.NO_WRAP)
-        GZIPInputStream(compressed.inputStream()).use { gzip ->
-            return SharedDataProto.parseFrom(gzip.readBytes())
-        }
-    }
-
-    fun importProtoToRoom(qrData: String) {
+    private fun importProtoToRoom(qrData: String) {
         viewModelScope.launch {
             try {
                 _uiState.update { it.copy(isLoading = true) }
-                val proto = qrDataToProto(qrData)
-                val id = infoRepository.importProtoToRoom(proto)
+                val id = infoRepository.importProtoToRoom(qrData)
                 if (id != 0L) _uiState.update {
                     it.copy(venueId = id)
                 }
@@ -134,7 +125,7 @@ class QrScannerViewModel @Inject constructor(
                 val height = bitmap.height
                 val pixels = IntArray(width * height)
                 bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-                // bitmap.recycle() // Có thể recycle nếu không dùng nữa
+                 bitmap.recycle()
 
                 val source = RGBLuminanceSource(width, height, pixels)
                 val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
@@ -143,10 +134,13 @@ class QrScannerViewModel @Inject constructor(
                 }
 
                 val result = reader.decode(binaryBitmap)
-                importProtoToRoom(result.text)
+                val data = qrRepository.readTextSafely(result.text)
+                importProtoToRoom(data)
 
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = "Không tìm thấy QR trong vùng chọn") }
+                _uiState.update { it.copy(error = "Không tìm thấy QR trong vùng chọn") }
+            } finally {
+                _uiState.update { it.copy(isLoading = false) }
             }
         }
     }

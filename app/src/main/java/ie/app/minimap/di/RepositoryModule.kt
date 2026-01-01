@@ -19,11 +19,19 @@ import ie.app.minimap.data.local.repository.EventRepository
 import ie.app.minimap.data.local.repository.InfoRepository
 import ie.app.minimap.data.local.repository.MapRepository
 import ie.app.minimap.data.local.repository.VenueRepository
+import ie.app.minimap.data.remote.QrApiService
+import ie.app.minimap.data.remote.QrRepository
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object RepositoryModule {
+
+    @Provides
+    @Singleton
+    fun provideQrRepository(
+        api: QrApiService
+    ): QrRepository = QrRepository(api)
 
     @Provides
     @Singleton
