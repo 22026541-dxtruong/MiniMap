@@ -65,6 +65,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -110,6 +111,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val uiState by viewModel.uiState.collectAsState()
     var isOpenDialog by remember { mutableStateOf(false) }
@@ -190,9 +192,18 @@ fun HomeScreen(
         )
     }
 
+    LaunchedEffect(uiState.isOnline) {
+        if (!uiState.isOnline) {
+            snackbarHostState.showSnackbar("Không có kết nối mạng", duration = SnackbarDuration.Indefinite)
+        } else {
+            snackbarHostState.currentSnackbarData?.dismiss()
+        }
+    }
+
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {

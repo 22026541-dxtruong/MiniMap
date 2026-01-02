@@ -16,18 +16,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import ie.app.minimap.data.local.entity.Event
+import ie.app.minimap.di.NetworkMonitor
 import kotlinx.coroutines.flow.update
 
 data class EventUiState(
     val events: List<EventWithBuildingAndFloor> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isOnline: Boolean = true
 )
 
 @HiltViewModel
 class EventViewModel @Inject constructor(
     private val venueRepository: VenueRepository,
-    private val eventRepository: EventRepository
+    private val eventRepository: EventRepository,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val _venue = MutableStateFlow<Venue?>(null)
@@ -42,9 +45,18 @@ class EventViewModel @Inject constructor(
     private val _booths = MutableStateFlow<List<Booth>>(emptyList())
     val booths: StateFlow<List<Booth>> = _booths
 
-    /**
-     * Tải thông tin chi tiết của Venue từ Repository
-     */
+    init {
+        observeNetworkStatus()
+    }
+
+    private fun observeNetworkStatus() {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { isOnline ->
+                _uiState.update { it.copy(isOnline = isOnline) }
+            }
+        }
+    }
+
     fun loadEvents(venueId: Long) {
         viewModelScope.launch {
             try {

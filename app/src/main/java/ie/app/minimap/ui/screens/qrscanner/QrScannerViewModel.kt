@@ -25,6 +25,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import ie.app.minimap.data.local.repository.InfoRepository
 import ie.app.minimap.data.remote.QrRepository
 import ie.app.minimap.ui.qr.QrCodeAnalyzer
+import ie.app.minimap.di.NetworkMonitor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,13 +38,15 @@ import javax.inject.Inject
 data class QrScannerUiState(
     val venueId: Long = 0,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isOnline: Boolean = true
 )
 
 @HiltViewModel
 class QrScannerViewModel @Inject constructor(
     private val infoRepository: InfoRepository,
-    private val qrRepository: QrRepository
+    private val qrRepository: QrRepository,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
     lateinit var camera: Camera
 
@@ -91,9 +94,21 @@ class QrScannerViewModel @Inject constructor(
         }
     }
 
+    init {
+        observeNetworkStatus()
+    }
+
     fun toggleFlash(on: Boolean) {
         if (::camera.isInitialized) {
             camera.cameraControl.enableTorch(on)
+        }
+    }
+
+    private fun observeNetworkStatus() {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { isOnline ->
+                _uiState.update { it.copy(isOnline = isOnline) }
+            }
         }
     }
 

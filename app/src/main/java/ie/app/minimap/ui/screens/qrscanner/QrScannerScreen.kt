@@ -28,6 +28,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -83,6 +86,8 @@ fun QrScannerScreen(
     }
     var isFlashOn by remember { mutableStateOf(false) }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
     LaunchedEffect(uiState.venueId) {
         if (uiState.venueId != 0L) {
             onScannedSuccess(uiState.venueId)
@@ -93,7 +98,19 @@ fun QrScannerScreen(
         viewModel.bindToCamera(context.applicationContext, lifecycleOwner)
     }
 
-    Scaffold { innerPadding ->
+    LaunchedEffect(uiState.isOnline) {
+        if (!uiState.isOnline) {
+            snackbarHostState.showSnackbar("Không có kết nối mạng", duration = SnackbarDuration.Indefinite)
+        } else {
+            snackbarHostState.currentSnackbarData?.dismiss()
+        }
+    }
+
+    Scaffold(
+        snackbarHost = {
+            SnackbarHost(snackbarHostState)
+        }
+    ) { innerPadding ->
         Box(modifier = modifier
             .fillMaxSize()
             .padding(innerPadding)) {

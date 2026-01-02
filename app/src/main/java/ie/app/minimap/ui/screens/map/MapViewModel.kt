@@ -15,6 +15,7 @@ import ie.app.minimap.data.local.relations.BoothWithVendor
 import ie.app.minimap.data.local.relations.NodeWithShape
 import ie.app.minimap.data.local.repository.InfoRepository
 import ie.app.minimap.data.local.repository.MapRepository
+import ie.app.minimap.di.NetworkMonitor
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,7 +38,8 @@ data class MapEditorUiState(
     val selectedBuilding: Building = Building(),
     val selectedFloor: Floor = Floor(),
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isOnline: Boolean = true
 )
 
 data class SearchResult(
@@ -49,7 +51,8 @@ data class SearchResult(
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val mapRepository: MapRepository,
-    private val infoRepository: InfoRepository
+    private val infoRepository: InfoRepository,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(MapEditorUiState(isLoading = true))
     val uiState: StateFlow<MapEditorUiState> = _uiState.asStateFlow()
@@ -101,6 +104,15 @@ class MapViewModel @Inject constructor(
         viewModelScope.launch {
             infoRepository.getAllVendors().collect {
                 _allVendors.value = it
+            }
+        }
+        observeNetworkStatus()
+    }
+
+    private fun observeNetworkStatus() {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { isOnline ->
+                _uiState.update { it.copy(isOnline = isOnline) }
             }
         }
     }

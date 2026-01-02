@@ -57,6 +57,7 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -151,6 +152,14 @@ fun MapEditorScreen(
     LaunchedEffect(selectionNode?.node?.id) {
         selectionNode?.node?.id?.let {
             viewModel.loadBoothWithVendor(it)
+        }
+    }
+
+    LaunchedEffect(uiState.isOnline) {
+        if (!uiState.isOnline) {
+            snackbarHostState.showSnackbar("Không có kết nối mạng", duration = SnackbarDuration.Indefinite)
+        } else {
+            snackbarHostState.currentSnackbarData?.dismiss()
         }
     }
 

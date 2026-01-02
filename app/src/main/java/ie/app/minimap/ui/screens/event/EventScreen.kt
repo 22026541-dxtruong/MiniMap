@@ -144,28 +144,7 @@ fun EventScreen(
             }
         )
     }
-    // Fakedata
-//    val stands = remember {
-//        listOf(
-//            Vendors("TechCorp", R.drawable.event_live),
-//            Vendors("InnovateX", R.drawable.event_live),
-//            Vendors("CloudSphere", R.drawable.event_live),
-//            Vendors("CyberGuard", R.drawable.event_live)
-//        )
-//    }
 
-//    val schedules= remember {
-//        listOf(
-//            EventDetail("Keynote: Tương lai của AI", "14:00 - 14:45", "Sảnh chính A"),
-//            EventDetail(
-//                "Workshop: Xây dựng ứng dụng AR",
-//                "15:00 - 16:00",
-//                "Phòng hội thảo 1",
-//                "Tham gia workshop để học cách xây dựng ứng dụng AR từ đầu với các chuyên gia hàng đầu."
-//            ),
-//            EventDetail("Panel: Blockchain và ứng dụng", "16:15 - 17:00", "Sảnh chính B")
-//        )
-//    }
     val stands = remember(vendors) {
         vendors.map { vendor ->
             Vendors(
@@ -174,11 +153,18 @@ fun EventScreen(
             )
         }
     }
-    val schedules = remember(events.events) {
-        events.events.map { it.toDetail() } ?: emptyList()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(events.isOnline) {
+        if (!events.isOnline) {
+            snackbarHostState.showSnackbar("Không có kết nối mạng", duration = SnackbarDuration.Indefinite)
+        } else {
+            snackbarHostState.currentSnackbarData?.dismiss()
+        }
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { onMapEditClicked(venueId) },

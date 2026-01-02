@@ -40,7 +40,7 @@ Dự án được chia thành các module chính:
 
 1. Clone dự án:
    ```bash
-   git clone https://github.com/your-username/minimap.git
+   git clone https://github.com/22026541-dxtruong/MiniMap.git
    ```
 2. Mở dự án bằng **Android Studio (Ladybug hoặc mới hơn)**.
 3. Chờ Gradle đồng bộ hóa các phụ thuộc.

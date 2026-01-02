@@ -12,6 +12,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import ie.app.minimap.data.local.entity.Venue
 import ie.app.minimap.data.local.repository.InfoRepository
 import ie.app.minimap.data.local.repository.VenueRepository
+import ie.app.minimap.di.NetworkMonitor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,19 +26,30 @@ import java.io.File
 data class HomeUiState(
     val venues: List<Venue> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isOnline: Boolean = true
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val venueRepository: VenueRepository,
-    private val infoRepository: InfoRepository
+    private val infoRepository: InfoRepository,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
     private var _uiState = MutableStateFlow(HomeUiState(isLoading = true))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
         loadAllVenues()
+        observeNetworkStatus()
+    }
+
+    private fun observeNetworkStatus() {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { isOnline ->
+                _uiState.update { it.copy(isOnline = isOnline) }
+            }
+        }
     }
 
     private fun loadAllVenues() {
